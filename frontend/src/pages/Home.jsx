@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { request } from '../api';
 import { supabase } from '../lib/supabase';
 import './Home.css';
 

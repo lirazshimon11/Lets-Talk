@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import imageCompression from 'browser-image-compression';
+import { Camera } from 'lucide-react';
 
 const PREF_HAIR_OPTIONS = ['Blonde', 'Brunette', 'Black', 'Red', 'Gray', 'White', 'Bald', 'Dyed/Vibrant', 'Other', 'Any'];
 const HAIR_OPTIONS = ['Blonde', 'Brunette', 'Black', 'Red', 'Gray', 'White', 'Bald', 'Dyed/Vibrant', 'Other', 'Any'];
@@ -22,6 +24,8 @@ const LANGUAGE_OPTIONS = [
 export default function Preferences() {
     const { t, i18n } = useTranslation();
     const [step, setStep] = useState(1);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const fileInputRef = useRef(null);
     const [details, setDetails] = useState({
         my_name: '',
         my_country: 'USA',
@@ -33,7 +37,8 @@ export default function Preferences() {
         my_hair: 'Brunette',
         my_eyes: 'Brown',
         my_ethnicity: 'Caucasian',
-        my_religion: 'Other'
+        my_religion: 'Other',
+        profile_image: ''
     });
 
     const [preferences, setPreferences] = useState({
@@ -82,7 +87,8 @@ export default function Preferences() {
                         my_hair: data.my_hair || 'Brunette',
                         my_eyes: data.my_eyes || 'Brown',
                         my_ethnicity: data.my_ethnicity || 'Caucasian',
-                        my_religion: data.my_religion || 'Other'
+                        my_religion: data.my_religion || 'Other',
+                        profile_image: data.profile_image || ''
                     });
                     setPreferences({
                         match_gender: data.match_gender || 'Female',
@@ -137,6 +143,40 @@ export default function Preferences() {
         }
     };
 
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploadingImage(true);
+        setError('');
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Not logged in');
+
+            const options = { maxSizeMB: 1, maxWidthOrHeight: 800, useWebWorker: true };
+            const compressedFile = await imageCompression(file, options);
+
+            const fileExt = compressedFile.name.split('.').pop();
+            const fileName = `${session.user.id}-${Math.random()}.${fileExt}`;
+            const filePath = `user_avatars/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, compressedFile, { upsert: true });
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+            setDetails({ ...details, profile_image: publicUrl });
+            await supabase.from('profiles').update({ profile_image: publicUrl }).eq('id', session.user.id);
+
+        } catch (err) {
+            console.error('Upload Error:', err);
+            setError(err.message || 'Failed to upload image.');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
     if (loading) return <div className="auth-container"><div className="brand-title">{t('loading')}</div></div>;
 
     const renderImportance = (field) => (
@@ -167,6 +207,36 @@ export default function Preferences() {
 
                     {step === 1 && (
                         <div className="form-grid">
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px', gridColumn: '1 / -1' }}>
+                                <div
+                                    style={{
+                                        position: 'relative', width: '100px', height: '100px', borderRadius: '50%',
+                                        overflow: 'hidden', border: '3px solid var(--accent-gradient)', cursor: 'pointer',
+                                        boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
+                                    }}
+                                    onClick={() => { if (!uploadingImage) fileInputRef.current?.click(); }}
+                                >
+                                    {details.profile_image ? (
+                                        <img src={details.profile_image} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: uploadingImage ? 0.5 : 1 }} />
+                                    ) : (
+                                        <div style={{ width: '100%', height: '100%', background: 'var(--input-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-muted)' }}>
+                                            {details.my_name ? details.my_name.charAt(0).toUpperCase() : '?'}
+                                        </div>
+                                    )}
+
+                                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '35%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+                                        {uploadingImage ? (
+                                            <div className="heart-preloader" style={{ transform: 'scale(0.3)' }}><span></span><span></span><span></span></div>
+                                        ) : (
+                                            <Camera size={16} color="white" />
+                                        )}
+                                    </div>
+                                </div>
+                                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" style={{ display: 'none' }} />
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '10px' }}>Tap to add a profile picture</p>
+                            </div>
+
                             <div style={{ textAlign: 'left', marginBottom: '15px' }}>
                                 <label className="input-label">{t('lbl_full_name')}</label>
                                 <input type="text" required className="input-field" value={details.my_name} onChange={e => setDetails({ ...details, my_name: e.target.value })} placeholder="John Doe" />

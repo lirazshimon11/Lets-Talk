@@ -56,8 +56,8 @@ export default function Navbar({ session }) {
                             <Link to="/chats" className={`nav-link ${isChats ? 'active' : ''}`}>
                                 {t('nav_chats')}
                             </Link>
-                            <Link to="/settings" className={`nav-link ${isSettings ? 'active' : ''}`}>
-                                {'Preferences'}
+                            <Link to="/preferences" className={`nav-link ${location.pathname === '/preferences' ? 'active' : ''}`}>
+                                {t('nav_settings') || 'Preferences'}
                             </Link>
                             <button onClick={toggleTheme} className="btn-theme-toggle" title="Toggle Light/Dark Mode">
                                 {theme === 'light' ? '🌙' : '☀️'}
