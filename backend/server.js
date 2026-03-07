@@ -56,8 +56,8 @@ io.on('connection', (socket) => {
                 revealed = true;
             }
 
-            const userRes = await pool.query('SELECT username FROM users WHERE id = $1', [senderId]);
-            const fullMsg = { ...msgRes.rows[0], sender_name: userRes.rows[0].username };
+            const userRes = await pool.query('SELECT my_name FROM profiles WHERE id = $1', [senderId]);
+            const fullMsg = { ...msgRes.rows[0], sender_name: userRes.rows[0].my_name };
 
             io.to(`chat_${conversationId}`).emit('receive_message', {
                 message: fullMsg,

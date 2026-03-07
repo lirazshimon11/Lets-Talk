@@ -1,25 +1,35 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { request } from '../api';
+import { supabase } from '../lib/supabase';
 
 export default function Register() {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleRegister = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError('');
+
         try {
-            const data = await request('/auth/register', {
-                method: 'POST',
-                body: JSON.stringify({ username, password })
+            const { data, error: signUpError } = await supabase.auth.signUp({
+                email,
+                password,
             });
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            navigate('/preferences');
+
+            if (signUpError) throw signUpError;
+
+            if (data.user) {
+                // If email confirmation is off, this returns a session immediately
+                navigate('/preferences');
+            }
         } catch (err) {
             setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -29,13 +39,13 @@ export default function Register() {
                 <h1 className="brand-title">Let's Talk</h1>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '14px' }}>Sign up to see photos strictly after a great chat.</p>
                 <form onSubmit={handleRegister}>
-                    {error && <p style={{ color: '#ff4d4d', fontSize: '14px' }}>{error}</p>}
+                    {error && <p style={{ color: '#ff4d4d', fontSize: '14px', marginBottom: '10px' }}>{error}</p>}
                     <input
-                        type="text"
-                        placeholder="Username"
+                        type="email"
+                        placeholder="Email Address"
                         className="input-field"
-                        value={username}
-                        onChange={e => setUsername(e.target.value)}
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
                         required
                     />
                     <input
@@ -45,8 +55,11 @@ export default function Register() {
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         required
+                        minLength="6"
                     />
-                    <button type="submit" className="btn-primary">Sign Up</button>
+                    <button type="submit" className="btn-primary" disabled={loading}>
+                        {loading ? 'Signing Up...' : 'Sign Up'}
+                    </button>
                 </form>
                 <div className="auth-switch">
                     Have an account? <Link to="/login">Log in</Link>

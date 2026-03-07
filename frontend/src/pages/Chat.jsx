@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
-import { request } from '../api';
+import { supabase } from '../lib/supabase';
+import { getCompatibility } from '../utils/compatibility';
 import './Chat.css';
 
 export default function Chat() {
@@ -11,71 +11,129 @@ export default function Chat() {
     const [messages, setMessages] = useState([]);
     const [text, setText] = useState('');
     const [theme, setTheme] = useState('default');
-    const [socket, setSocket] = useState(null);
     const [loading, setLoading] = useState(true);
     const [threshold, setThreshold] = useState(10);
     const [showSettings, setShowSettings] = useState(false);
     const [showCompatibility, setShowCompatibility] = useState(false);
     const [compatibilityData, setCompatibilityData] = useState([]);
+    const [compatibilityPercentage, setCompatibilityPercentage] = useState(100);
+    const [currentUser, setCurrentUser] = useState(null);
 
     const messagesEndRef = useRef(null);
-    const currentUser = JSON.parse(localStorage.getItem('user'));
 
     useEffect(() => {
         const fetchChat = async () => {
             try {
-                const data = await request(`/chat/${id}`);
-                setConversation(data.conversation);
-                setMessages(data.messages);
-                setTheme(data.conversation.theme || 'default');
-                setThreshold(data.threshold);
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return navigate('/login');
+                setCurrentUser(session.user);
+
+                // Fetch conversion
+                const { data: convData, error: convError } = await supabase
+                    .from('conversations')
+                    .select(`
+                        id, status, theme, message_count,
+                        user1_id, user2_id,
+                        user1:profiles!conversations_user1_id_fkey(my_name, profile_image),
+                        user2:profiles!conversations_user2_id_fkey(my_name, profile_image)
+                    `)
+                    .eq('id', id)
+                    .single();
+
+                if (convError) throw convError;
+
+                const isUser1 = convData.user1_id === session.user.id;
+                const otherUser = isUser1 ? convData.user2 : convData.user1;
+
+                const formattedConv = {
+                    ...convData,
+                    other_username: otherUser.my_name,
+                    other_profile_image: otherUser.profile_image
+                };
+
+                // Fetch messages
+                const { data: msgData, error: msgError } = await supabase
+                    .from('messages')
+                    .select('id, sender_id, text, created_at')
+                    .eq('conversation_id', id)
+                    .order('created_at', { ascending: true });
+
+                if (msgError) throw msgError;
+
+                setConversation(formattedConv);
+                setMessages(msgData || []);
+                setTheme(formattedConv.theme || 'default');
+                setThreshold(10);
                 setLoading(false);
             } catch (err) {
-                console.error(err);
+                console.error('Chat fetch error:', err);
                 navigate('/');
             }
         };
         fetchChat();
     }, [id, navigate]);
 
+    // Supabase Realtime Subscription
     useEffect(() => {
         if (!loading) {
-            const newSocket = io('http://localhost:5000');
-            setSocket(newSocket);
+            const channel = supabase
+                .channel(`chat_${id}`)
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, payload => {
+                    setMessages(prev => [...prev, payload.new]);
 
-            newSocket.emit('join_chat', { conversationId: id });
+                    // Optimistic message count update
+                    setConversation(prev => {
+                        const newCount = prev.message_count + 1;
+                        return {
+                            ...prev,
+                            message_count: newCount,
+                            status: newCount >= threshold ? 'revealed' : prev.status
+                        };
+                    });
+                })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `id=eq.${id}` }, payload => {
+                    if (payload.new.theme) setTheme(payload.new.theme);
+                    setConversation(prev => ({
+                        ...prev,
+                        status: payload.new.status,
+                        message_count: payload.new.message_count
+                    }));
+                })
+                .subscribe();
 
-            newSocket.on('receive_message', (data) => {
-                setMessages(prev => [...prev, data.message]);
-                setConversation(prev => ({ ...prev, message_count: data.message_count }));
-                if (data.revealed) {
-                    setConversation(prev => ({ ...prev, status: 'revealed' }));
-                }
-            });
-
-            newSocket.on('theme_updated', (newTheme) => {
-                setTheme(newTheme);
-            });
-
-            return () => newSocket.close();
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
-    }, [id, loading]);
+    }, [id, loading, threshold]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleSend = (e) => {
+    const handleSend = async (e) => {
         e.preventDefault();
-        if (!text.trim() || !socket) return;
-        socket.emit('send_message', { conversationId: id, senderId: currentUser.id, text });
+        if (!text.trim()) return;
+        const msgText = text;
         setText('');
+
+        await supabase.from('messages').insert({
+            conversation_id: id,
+            sender_id: currentUser.id,
+            text: msgText
+        });
+
+        // Let PG Trigger or React optimistic update handle the count and reveal status
+        const newCount = conversation.message_count + 1;
+        await supabase.from('conversations').update({
+            message_count: newCount,
+            status: newCount >= threshold ? 'revealed' : conversation.status
+        }).eq('id', id);
     };
 
-    const handleThemeChange = (newTheme) => {
-        if (!socket) return;
+    const handleThemeChange = async (newTheme) => {
         setTheme(newTheme);
-        socket.emit('change_theme', { conversationId: id, theme: newTheme });
+        await supabase.from('conversations').update({ theme: newTheme }).eq('id', id);
     };
 
     const handleEndChat = () => {
@@ -93,8 +151,10 @@ export default function Chat() {
     const handleShowCompatibility = async (e) => {
         e.stopPropagation(); // Prevent opening settings modal
         try {
-            const data = await request(`/match/${id}/compatibility`);
+            if (!currentUser) return;
+            const data = await getCompatibility(id, currentUser.id);
             setCompatibilityData(data.compatibility || []);
+            setCompatibilityPercentage(data.percentage ?? 100);
             setShowCompatibility(true);
         } catch (err) {
             console.error(err);
@@ -199,30 +259,47 @@ export default function Chat() {
             {showCompatibility && (
                 <div className="settings-modal-overlay" onClick={() => setShowCompatibility(false)}>
                     <div className="settings-modal compatibility-modal" onClick={e => e.stopPropagation()}>
-                        <div className="settings-header">
-                            <h3>Why We Matched</h3>
+                        <div className="settings-header" style={{ marginBottom: '15px' }}>
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>✨</span> Why We Matched
+                            </h3>
                             <button className="btn-close" onClick={() => setShowCompatibility(false)}>X</button>
                         </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px', padding: '15px', background: 'var(--input-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <span style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-main)' }}>Match Score</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '100px', height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                                    <div style={{ width: `${compatibilityPercentage}%`, height: '100%', background: 'var(--accent-gradient)', borderRadius: '4px', transition: 'width 1s ease-out' }}></div>
+                                </div>
+                                <span style={{ fontWeight: '800', fontSize: '1.2rem', color: '#10b981' }}>{compatibilityPercentage}%</span>
+                            </div>
+                        </div>
+
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '15px' }}>
+                            Here are the specific preferences you both share:
+                        </p>
+
                         <div className="compatibility-table">
                             <div className="comp-row comp-header">
                                 <div className="comp-col">Trait</div>
-                                <div className="comp-col">You Wanted</div>
-                                <div className="comp-col">They Are</div>
-                                <div className="comp-col center" style={{ width: '60px' }}>Match</div>
+                                <div className="comp-col">Your Preference</div>
+                                <div className="comp-col">Their Trait</div>
                             </div>
-                            {compatibilityData.map((item, i) => (
-                                <div key={i} className={`comp-row ${item.matched ? 'matched' : 'missed'}`}>
-                                    <div className="comp-col label">{item.label}</div>
-                                    <div className="comp-col">{item.preference}</div>
-                                    <div className="comp-col">{item.their_trait}</div>
-                                    <div className="comp-col center" style={{ width: '60px' }}>
-                                        {item.matched ? '✅' : '❌'}
+                            {compatibilityData
+                                .filter(item => item.matched && item.preference !== 'Any')
+                                .map((item, i) => (
+                                    <div key={i} className="comp-row matched">
+                                        <div className="comp-col label">{item.label}</div>
+                                        <div className="comp-col" style={{ color: '#ec4899', fontWeight: '800' }}>{item.preference}</div>
+                                        <div className="comp-col" style={{ color: '#10b981', fontWeight: '800' }}>{item.their_trait}</div>
                                     </div>
-                                </div>
-                            ))}
-                            {compatibilityData.length === 0 && (
+                                ))}
+                            {compatibilityData.filter(item => item.matched && item.preference !== 'Any').length === 0 && (
                                 <div className="comp-row">
-                                    <div className="comp-col" style={{ width: '100%', textAlign: 'center', opacity: 0.7 }}>No specific preferences were set.</div>
+                                    <div className="comp-col" style={{ width: '100%', textAlign: 'center', opacity: 0.7 }}>
+                                        You matched perfectly on standard criteria without any specific strict preferences!
+                                    </div>
                                 </div>
                             )}
                         </div>

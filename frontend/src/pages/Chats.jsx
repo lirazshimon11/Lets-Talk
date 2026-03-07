@@ -1,20 +1,52 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { request } from '../api';
-import './Chats.css'; // Make sure to move Home.css history styles here or keep them global
+import { supabase } from '../lib/supabase';
+import { getCompatibility } from '../utils/compatibility';
+import './Chats.css';
 
 export default function Chats() {
     const [conversations, setConversations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCompatibility, setShowCompatibility] = useState(false);
     const [compatibilityData, setCompatibilityData] = useState([]);
+    const [compatibilityPercentage, setCompatibilityPercentage] = useState(100);
+    const [currentUser, setCurrentUser] = useState(null);
     const navigate = useNavigate();
 
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                const data = await request('/match/history');
-                setConversations(data);
+                const { data: { session } } = await supabase.auth.getSession();
+                const userId = session?.user?.id;
+                setCurrentUser(session?.user);
+
+                const { data, error } = await supabase
+                    .from('conversations')
+                    .select(`
+                        id, status, theme, message_count,
+                        user1_id,
+                        user2_id,
+                        user1:profiles!conversations_user1_id_fkey(my_name, profile_image),
+                        user2:profiles!conversations_user2_id_fkey(my_name, profile_image)
+                    `)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                const mapped = data.map(conv => {
+                    const isUser1 = conv.user1_id === userId;
+                    const otherUser = isUser1 ? conv.user2 : conv.user1;
+                    return {
+                        id: conv.id,
+                        status: conv.status,
+                        theme: conv.theme,
+                        message_count: conv.message_count,
+                        other_username: otherUser.my_name,
+                        other_profile_image: otherUser.profile_image
+                    };
+                });
+
+                setConversations(mapped);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -27,8 +59,10 @@ export default function Chats() {
     const handleShowCompatibility = async (e, id) => {
         e.stopPropagation(); // prevent navigating to chat
         try {
-            const data = await request(`/match/${id}/compatibility`);
+            if (!currentUser) return;
+            const data = await getCompatibility(id, currentUser.id);
             setCompatibilityData(data.compatibility || []);
+            setCompatibilityPercentage(data.percentage ?? 100);
             setShowCompatibility(true);
         } catch (err) {
             console.error(err);
@@ -74,30 +108,47 @@ export default function Chats() {
             {showCompatibility && (
                 <div className="settings-modal-overlay" onClick={() => setShowCompatibility(false)}>
                     <div className="settings-modal compatibility-modal" onClick={e => e.stopPropagation()}>
-                        <div className="settings-header">
-                            <h3>Why We Matched</h3>
+                        <div className="settings-header" style={{ marginBottom: '15px' }}>
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '1.5rem' }}>✨</span> Why We Matched
+                            </h3>
                             <button className="btn-close" onClick={() => setShowCompatibility(false)}>X</button>
                         </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px', padding: '15px', background: 'var(--input-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <span style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-main)' }}>Match Score</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '100px', height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                                    <div style={{ width: `${compatibilityPercentage}%`, height: '100%', background: 'var(--accent-gradient)', borderRadius: '4px', transition: 'width 1s ease-out' }}></div>
+                                </div>
+                                <span style={{ fontWeight: '800', fontSize: '1.2rem', color: '#10b981' }}>{compatibilityPercentage}%</span>
+                            </div>
+                        </div>
+
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '15px' }}>
+                            Here are the specific preferences you both share:
+                        </p>
+
                         <div className="compatibility-table">
                             <div className="comp-row comp-header">
                                 <div className="comp-col">Trait</div>
-                                <div className="comp-col">You Wanted</div>
-                                <div className="comp-col">They Are</div>
-                                <div className="comp-col center" style={{ width: '60px' }}>Match</div>
+                                <div className="comp-col">Your Preference</div>
+                                <div className="comp-col">Their Trait</div>
                             </div>
-                            {compatibilityData.map((item, i) => (
-                                <div key={i} className={`comp-row ${item.matched ? 'matched' : 'missed'}`}>
-                                    <div className="comp-col label">{item.label}</div>
-                                    <div className="comp-col">{item.preference}</div>
-                                    <div className="comp-col">{item.their_trait}</div>
-                                    <div className="comp-col center" style={{ width: '60px' }}>
-                                        {item.matched ? '✅' : '❌'}
+                            {compatibilityData
+                                .filter(item => item.matched && item.preference !== 'Any')
+                                .map((item, i) => (
+                                    <div key={i} className="comp-row matched">
+                                        <div className="comp-col label">{item.label}</div>
+                                        <div className="comp-col" style={{ color: '#ec4899', fontWeight: '800' }}>{item.preference}</div>
+                                        <div className="comp-col" style={{ color: '#10b981', fontWeight: '800' }}>{item.their_trait}</div>
                                     </div>
-                                </div>
-                            ))}
-                            {compatibilityData.length === 0 && (
+                                ))}
+                            {compatibilityData.filter(item => item.matched && item.preference !== 'Any').length === 0 && (
                                 <div className="comp-row">
-                                    <div className="comp-col" style={{ width: '100%', textAlign: 'center', opacity: 0.7 }}>No specific preferences were set.</div>
+                                    <div className="comp-col" style={{ width: '100%', textAlign: 'center', opacity: 0.7 }}>
+                                        You matched perfectly on standard criteria without any specific strict preferences!
+                                    </div>
                                 </div>
                             )}
                         </div>

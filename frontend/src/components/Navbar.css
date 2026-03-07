@@ -179,3 +179,31 @@
     border-color: var(--glass-border);
     background: var(--card-bg);
 }
+
+/* Landing Page Navbar Authentication Buttons */
+.btn-login-nav {
+    color: var(--text-main);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.btn-login-nav:hover {
+    color: var(--accent-color);
+}
+
+.btn-signup-nav {
+    background: var(--accent-gradient);
+    color: white !important;
+    text-decoration: none;
+    padding: 8px 20px;
+    border-radius: 25px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px var(--accent-shadow);
+}
+
+.btn-signup-nav:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px var(--accent-shadow);
+}

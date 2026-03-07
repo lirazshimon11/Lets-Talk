@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { request } from '../api';
 import './Settings.css';
 
-const HAIR_OPTIONS = ['Blonde', 'Brunette', 'Black', 'Red', 'Other', 'Any'];
+const PREF_HAIR_OPTIONS = ['Blonde', 'Brunette', 'Black', 'Red', 'Gray', 'White', 'Bald', 'Dyed/Vibrant', 'Other', 'Any'];
+const HAIR_OPTIONS = ['Blonde', 'Brunette', 'Black', 'Red', 'Gray', 'White', 'Bald', 'Dyed/Vibrant', 'Other', 'Any'];
 const EYE_OPTIONS = ['Blue', 'Green', 'Brown', 'Hazel', 'Other', 'Any'];
 const ETHNICITY_OPTIONS = ['Caucasian', 'African American', 'Asian', 'Hispanic', 'Mixed', 'Other', 'Any'];
 const GENDER_OPTIONS = ['Male', 'Female', 'Other', 'Any'];
@@ -26,7 +27,9 @@ export default function Settings() {
 
     const [preferences, setPreferences] = useState({
         match_gender: 'Female', match_hair: 'Any', match_eyes: 'Any',
-        match_ethnicity: 'Any', match_religion: 'Any', match_age_min: 18, match_age_max: 99
+        match_ethnicity: 'Any', match_religion: 'Any', match_age_min: 18, match_age_max: 99,
+        match_age_importance: 5, match_gender_importance: 5, match_hair_importance: 5,
+        match_eyes_importance: 5, match_ethnicity_importance: 5, match_religion_importance: 5
     });
 
     useEffect(() => {
@@ -57,7 +60,13 @@ export default function Settings() {
                     match_ethnicity: data.match_ethnicity || 'Any',
                     match_religion: data.match_religion || 'Any',
                     match_age_min: data.match_age_min || 18,
-                    match_age_max: data.match_age_max || 99
+                    match_age_max: data.match_age_max || 99,
+                    match_age_importance: data.match_age_importance ?? 5,
+                    match_gender_importance: data.match_gender_importance ?? 5,
+                    match_hair_importance: data.match_hair_importance ?? 5,
+                    match_eyes_importance: data.match_eyes_importance ?? 5,
+                    match_ethnicity_importance: data.match_ethnicity_importance ?? 5,
+                    match_religion_importance: data.match_religion_importance ?? 5,
                 });
             }
         } catch (err) {
@@ -102,10 +111,27 @@ export default function Settings() {
 
     if (loading) return <div className="settings-container" style={{ textAlign: 'center' }}><h2>Loading Settings...</h2></div>;
 
+    const renderImportance = (field) => (
+        <div style={{ marginTop: '12px' }}>
+            <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Importance</span>
+                <span style={{ fontWeight: '800', color: 'var(--text-main)' }}>{preferences[field]}/10</span>
+            </label>
+            <input
+                className="modern-slider"
+                type="range" min="1" max="10"
+                disabled={!editMode}
+                value={preferences[field]}
+                onChange={e => setPreferences({ ...preferences, [field]: parseInt(e.target.value) })}
+                style={{ width: '100%', marginTop: '5px', cursor: editMode ? 'pointer' : 'default' }}
+            />
+        </div>
+    );
+
     return (
         <div className="settings-container">
             <div className="settings-header-top">
-                <h1 className="brand-title" style={{ fontSize: '2rem', margin: 0, paddingLeft: '5px' }}>Settings</h1>
+                <h1 className="brand-title" style={{ fontSize: '2rem', margin: 0, paddingLeft: '5px' }}>Preferences</h1>
                 <button className="btn-edit-toggle" onClick={() => setEditMode(!editMode)}>
                     {editMode ? 'Cancel Edit' : 'Edit Info'}
                 </button>
@@ -117,111 +143,91 @@ export default function Settings() {
             <form onSubmit={handleSave} className={`settings-form ${editMode ? 'editing' : 'viewing'}`}>
 
                 <div className="settings-card">
-                    <h3>Personal Information</h3>
                     <div className="settings-grid">
-                        <div className="settings-field">
-                            <label>Full Name</label>
-                            <input type="text" disabled={!editMode} value={details.my_name} onChange={e => setDetails({ ...details, my_name: e.target.value })} required />
+                        <div className="settings-field" style={{ gridColumn: '1 / -1' }}>
+                            <div style={{ display: 'flex', gap: '15px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label>Min Age</label>
+                                    <input type="number" disabled={!editMode} value={preferences.match_age_min} onChange={e => setPreferences({ ...preferences, match_age_min: e.target.value })} required min="18" max="120" />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label>Max Age</label>
+                                    <input type="number" disabled={!editMode} value={preferences.match_age_max} onChange={e => setPreferences({ ...preferences, match_age_max: e.target.value })} required min="18" max="120" />
+                                </div>
+                            </div>
+                            {renderImportance('match_age_importance')}
                         </div>
-                        <div className="settings-field">
-                            <label>Country</label>
-                            <select disabled={!editMode} value={details.my_country} onChange={e => setDetails({ ...details, my_country: e.target.value })}>
-                                {COUNTRY_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
-                        <div className="settings-field">
-                            <label>Language</label>
-                            <select disabled={!editMode} value={details.my_language} onChange={e => setDetails({ ...details, my_language: e.target.value })}>
-                                {LANGUAGE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
-                        <div className="settings-field">
-                            <label>Age</label>
-                            <input type="number" disabled={!editMode} value={details.my_age} onChange={e => setDetails({ ...details, my_age: e.target.value })} required min="18" max="120" />
-                        </div>
-                        <div className="settings-field">
-                            <label>Height (cm)</label>
-                            <input type="text" disabled={!editMode} value={details.my_height} onChange={e => setDetails({ ...details, my_height: e.target.value })} />
-                        </div>
-                        <div className="settings-field">
-                            <label>Weight (kg)</label>
-                            <input type="text" disabled={!editMode} value={details.my_weight} onChange={e => setDetails({ ...details, my_weight: e.target.value })} />
-                        </div>
-                        <div className="settings-field">
-                            <label>I identify as</label>
-                            <select disabled={!editMode} value={details.my_gender} onChange={e => setDetails({ ...details, my_gender: e.target.value })}>
-                                {GENDER_OPTIONS.filter(o => o !== 'Any').map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
-                        <div className="settings-field">
-                            <label>Hair Color</label>
-                            <select disabled={!editMode} value={details.my_hair} onChange={e => setDetails({ ...details, my_hair: e.target.value })}>
-                                {HAIR_OPTIONS.filter(o => o !== 'Any').map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
-                        <div className="settings-field">
-                            <label>Eyes Color</label>
-                            <select disabled={!editMode} value={details.my_eyes} onChange={e => setDetails({ ...details, my_eyes: e.target.value })}>
-                                {EYE_OPTIONS.filter(o => o !== 'Any').map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
-                        <div className="settings-field">
-                            <label>Ethnicity</label>
-                            <select disabled={!editMode} value={details.my_ethnicity} onChange={e => setDetails({ ...details, my_ethnicity: e.target.value })}>
-                                {ETHNICITY_OPTIONS.filter(o => o !== 'Any').map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
-                        <div className="settings-field">
-                            <label>Religion</label>
-                            <select disabled={!editMode} value={details.my_religion} onChange={e => setDetails({ ...details, my_religion: e.target.value })}>
-                                {RELIGION_OPTIONS.filter(o => o !== 'Any').map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                </div>
 
-                <div className="settings-card">
-                    <h3>Partner Preferences</h3>
-                    <div className="settings-grid">
                         <div className="settings-field">
                             <label>I am looking for</label>
                             <select disabled={!editMode} value={preferences.match_gender} onChange={e => setPreferences({ ...preferences, match_gender: e.target.value })}>
                                 {GENDER_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
+                            {renderImportance('match_gender_importance')}
                         </div>
-                        <div className="settings-field" style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
-                            <div style={{ flex: 1 }}>
-                                <label>Min Age</label>
-                                <input type="number" disabled={!editMode} value={preferences.match_age_min} onChange={e => setPreferences({ ...preferences, match_age_min: e.target.value })} required min="18" max="120" />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <label>Max Age</label>
-                                <input type="number" disabled={!editMode} value={preferences.match_age_max} onChange={e => setPreferences({ ...preferences, match_age_max: e.target.value })} required min="18" max="120" />
-                            </div>
-                        </div>
+
                         <div className="settings-field">
                             <label>Preferred Hair Color</label>
-                            <select disabled={!editMode} value={preferences.match_hair} onChange={e => setPreferences({ ...preferences, match_hair: e.target.value })}>
-                                {HAIR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '10px 0' }}>
+                                {PREF_HAIR_OPTIONS.map(opt => {
+                                    const selectedHairs = preferences.match_hair ? preferences.match_hair.split(',') : [];
+                                    const isSelected = selectedHairs.includes(opt);
+
+                                    const toggleHair = () => {
+                                        if (!editMode) return;
+                                        if (opt === 'Any') {
+                                            setPreferences({ ...preferences, match_hair: 'Any' });
+                                            return;
+                                        }
+                                        let newSelection = selectedHairs.filter(h => h !== 'Any');
+                                        if (isSelected) {
+                                            newSelection = newSelection.filter(h => h !== opt);
+                                        } else {
+                                            newSelection.push(opt);
+                                        }
+                                        if (newSelection.length === 0) newSelection.push('Any');
+                                        setPreferences({ ...preferences, match_hair: newSelection.join(',') });
+                                    };
+
+                                    return (
+                                        <button
+                                            key={opt} type="button" onClick={toggleHair}
+                                            disabled={!editMode}
+                                            style={{
+                                                padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid var(--border-color)',
+                                                background: isSelected ? 'var(--accent-gradient)' : 'var(--input-bg)',
+                                                color: isSelected ? 'white' : 'var(--text-main)', cursor: editMode ? 'pointer' : 'default'
+                                            }}>
+                                            {opt}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {renderImportance('match_hair_importance')}
                         </div>
+
                         <div className="settings-field">
                             <label>Preferred Eye Color</label>
                             <select disabled={!editMode} value={preferences.match_eyes} onChange={e => setPreferences({ ...preferences, match_eyes: e.target.value })}>
                                 {EYE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
+                            {renderImportance('match_eyes_importance')}
                         </div>
+
                         <div className="settings-field">
                             <label>Preferred Ethnicity</label>
                             <select disabled={!editMode} value={preferences.match_ethnicity} onChange={e => setPreferences({ ...preferences, match_ethnicity: e.target.value })}>
                                 {ETHNICITY_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
+                            {renderImportance('match_ethnicity_importance')}
                         </div>
+
                         <div className="settings-field">
                             <label>Preferred Religion</label>
                             <select disabled={!editMode} value={preferences.match_religion} onChange={e => setPreferences({ ...preferences, match_religion: e.target.value })}>
                                 {RELIGION_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
+                            {renderImportance('match_religion_importance')}
                         </div>
                     </div>
                 </div>
@@ -229,7 +235,7 @@ export default function Settings() {
                 {editMode && (
                     <div className="settings-actions">
                         <button type="submit" className="btn-primary" disabled={saving} style={{ maxWidth: '200px' }}>
-                            {saving ? 'Saving...' : 'Save Settings'}
+                            {saving ? 'Saving...' : 'Save Preferences'}
                         </button>
                     </div>
                 )}

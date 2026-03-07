@@ -1,25 +1,32 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { request } from '../api';
+import { supabase } from '../lib/supabase';
 
 export default function Login() {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError('');
+
         try {
-            const data = await request('/auth/login', {
-                method: 'POST',
-                body: JSON.stringify({ username, password })
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
             });
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
+
+            if (signInError) throw signInError;
+
             navigate('/');
         } catch (err) {
             setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -28,13 +35,13 @@ export default function Login() {
             <div className="auth-box">
                 <h1 className="brand-title">Let's Talk</h1>
                 <form onSubmit={handleLogin}>
-                    {error && <p style={{ color: '#ff4d4d', fontSize: '14px' }}>{error}</p>}
+                    {error && <p style={{ color: '#ff4d4d', fontSize: '14px', marginBottom: '10px' }}>{error}</p>}
                     <input
-                        type="text"
-                        placeholder="Username"
+                        type="email"
+                        placeholder="Email Address"
                         className="input-field"
-                        value={username}
-                        onChange={e => setUsername(e.target.value)}
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
                         required
                     />
                     <input
@@ -45,7 +52,9 @@ export default function Login() {
                         onChange={e => setPassword(e.target.value)}
                         required
                     />
-                    <button type="submit" className="btn-primary">Log In</button>
+                    <button type="submit" className="btn-primary" disabled={loading}>
+                        {loading ? 'Logging In...' : 'Log In'}
+                    </button>
                 </form>
                 <div className="auth-switch">
                     Don't have an account? <Link to="/register">Sign up</Link>

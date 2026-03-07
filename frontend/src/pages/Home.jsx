@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { request } from '../api';
+import { supabase } from '../lib/supabase';
 import './Home.css';
 
 export default function Home() {
@@ -11,18 +12,37 @@ export default function Home() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Any initial fetch if needed (history is now typically shown on /chats, but left for context if any)
-    }, []);
+        const checkProfile = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('my_name')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (!data || !data.my_name) {
+                    navigate('/preferences');
+                }
+            }
+        };
+        checkProfile();
+    }, [navigate]);
 
     const handleStartSearch = async () => {
         setSearching(true);
         setError('');
         try {
-            const data = await request('/match/search', { method: 'POST' });
-            if (data.conversationId) {
-                navigate(`/chat/${data.conversationId}`);
+            const { data: conversationId, error: rpcError } = await supabase.rpc('match_user');
+
+            if (rpcError) {
+                throw new Error(rpcError.message);
+            }
+
+            if (conversationId) {
+                navigate(`/chat/${conversationId}`);
             } else {
-                setError(t('no_match_found') || 'No match found.');
+                setError(t('no_match_found') || 'No matches found right now. Try expanding your preferences.');
             }
         } catch (err) {
             setError(err.message);
@@ -35,13 +55,23 @@ export default function Home() {
         <div className="home-container">
             <div className="search-section">
                 {error && <div className="error-message">{error}</div>}
-                <button
-                    className={`search-btn ${searching ? 'pulsing' : ''}`}
-                    onClick={handleStartSearch}
-                    disabled={searching}
-                >
-                    {searching ? (t('loading') || 'Searching...') : (t('btn_start_searching') || 'Start Searching')}
-                </button>
+                {searching ? (
+                    <div className="preloader-wrapper">
+                        <div className="heart-preloader">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div className="heart-shadow"></div>
+                    </div>
+                ) : (
+                    <button
+                        className="search-btn"
+                        onClick={handleStartSearch}
+                    >
+                        {t('btn_start_searching') || 'Start Searching'}
+                    </button>
+                )}
             </div>
         </div>
     );

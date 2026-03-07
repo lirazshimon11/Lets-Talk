@@ -1,7 +1,11 @@
+import { supabase } from './lib/supabase';
+
 const API_URL = 'http://localhost:5000/api';
 
 export const request = async (endpoint, options = {}) => {
-    const token = localStorage.getItem('token');
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
     const headers = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
