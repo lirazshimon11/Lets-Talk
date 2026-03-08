@@ -5,10 +5,11 @@ import { supabase } from './lib/supabase';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Preferences from './pages/Preferences';
+import PhotoUpload from './pages/PhotoUpload';
 import Home from './pages/Home';
 import Landing from './pages/Landing';
 import Chat from './pages/Chat';
-
+import SettingsPage from './pages/SettingsPage';
 import Navbar from './components/Navbar';
 import PersonalInfo from './pages/PersonalInfo';
 import Chats from './pages/Chats';
@@ -25,10 +26,15 @@ const ProfileMustGuard = ({ children, session }) => {
   useEffect(() => {
     const checkProfile = async () => {
       if (!session) return;
-      const { data, error } = await supabase.from('profiles').select('my_name, my_age').eq('id', session.user.id).single();
+      const { data, error } = await supabase.from('profiles').select('my_name, my_age, profile_images').eq('id', session.user.id).single();
 
       if (error || !data || !data.my_name || !data.my_age) {
-        navigate('/preferences', { replace: true });
+        // Check if they have photos first — if not, send to photo upload
+        if (!data || !data.profile_images || data.profile_images.length === 0) {
+          navigate('/upload-photos', { replace: true });
+        } else {
+          navigate('/preferences', { replace: true });
+        }
       } else {
         setLoading(false);
       }
@@ -45,7 +51,7 @@ const WithNavbar = ({ children, session }) => {
   return (
     <>
       <Navbar session={session} />
-      <div style={{ padding: '0 20px', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '0 16px', display: 'flex', flexDirection: 'column' }}>
         {children}
       </div>
     </>
@@ -109,10 +115,12 @@ export default function App() {
     <Router>
       <Routes>
         {/* If user is logged in, hide Login/Register pages and redirect to Home */}
-        <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
-        <Route path="/register" element={session ? <Navigate to="/" replace /> : <Register />} />
+        <Route path="/login" element={session ? <Navigate to="/" replace /> : <WithNavbar session={session}><Login /></WithNavbar>} />
+        <Route path="/register" element={session ? <Navigate to="/" replace /> : <WithNavbar session={session}><Register /></WithNavbar>} />
 
-        <Route path="/preferences" element={<ProtectedRoute session={session}><Preferences /></ProtectedRoute>} />
+        <Route path="/upload-photos" element={<ProtectedRoute session={session}><PhotoUpload /></ProtectedRoute>} />
+        <Route path="/preferences" element={<ProtectedRoute session={session}><WithNavbar session={session}><Preferences /></WithNavbar></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><SettingsPage /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
         <Route path="/" element={session ? <ProfileMustGuard session={session}><WithNavbar session={session}><Home /></WithNavbar></ProfileMustGuard> : <WithNavbar session={session}><Landing /></WithNavbar>} />
         <Route path="/chats" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><Chats /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><PersonalInfo /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />

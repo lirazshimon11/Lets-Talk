@@ -1,0 +1,134 @@
+/* ── Wrapper ── */
+.cs-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.cs-disabled {
+    opacity: 0.85;
+    pointer-events: none;
+}
+
+/* ── Trigger button (inherits input-field look) ── */
+.cs-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    gap: 8px;
+    /* Remove the margin-bottom that input-field adds when inside a form-grid row */
+    margin-bottom: 0 !important;
+}
+
+.cs-trigger:disabled {
+    cursor: default;
+}
+
+.cs-trigger-open {
+    border-color: #EC4899 !important;
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15) !important;
+}
+
+.cs-display {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    color: var(--text-main);
+}
+
+/* ── Chevron arrow ── */
+.cs-arrow {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cs-arrow-up {
+    transform: rotate(-180deg);
+}
+
+/* ── Dropdown panel ── */
+.cs-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 9000;
+
+    background: var(--card-bg);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 4px 16px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    overflow-y: auto;
+    max-height: 240px;
+
+    animation: cs-appear 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cs-appear {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.cs-panel::-webkit-scrollbar {
+    width: 4px;
+}
+
+.cs-panel::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+/* ── Option rows ── */
+.cs-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 14px;
+    font-family: inherit;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease;
+    gap: 8px;
+}
+
+.cs-option:hover {
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.12), rgba(236, 72, 153, 0.08));
+}
+
+.cs-option-selected {
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.18), rgba(236, 72, 153, 0.12));
+    color: #c084fc;
+    font-weight: 700;
+}
+
+.cs-option-selected:hover {
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.25), rgba(236, 72, 153, 0.18));
+}
+
+/* ── Checkmark ── */
+.cs-check {
+    flex-shrink: 0;
+    color: #c084fc;
+    filter: drop-shadow(0 0 4px rgba(192, 132, 252, 0.6));
+}

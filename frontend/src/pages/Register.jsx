@@ -36,7 +36,9 @@ export default function Register() {
     return (
         <div className="auth-container">
             <div className="auth-box">
-                <h1 className="brand-title">Let's Talk</h1>
+                <Link to="/" style={{ textDecoration: 'none' }}>
+                    <h1 className="brand-title">Let's Talk</h1>
+                </Link>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '14px' }}>Sign up to see photos strictly after a great chat.</p>
                 <form onSubmit={handleRegister}>
                     {error && <p style={{ color: '#ff4d4d', fontSize: '14px', marginBottom: '10px' }}>{error}</p>}

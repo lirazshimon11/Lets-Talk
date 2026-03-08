@@ -8,6 +8,7 @@ export default function Home() {
     const { t } = useTranslation();
     const [searching, setSearching] = useState(false);
     const [error, setError] = useState('');
+    const [animateFail, setAnimateFail] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -28,9 +29,17 @@ export default function Home() {
         checkProfile();
     }, [navigate]);
 
+    useEffect(() => {
+        if (error) {
+            const timer = setTimeout(() => setError(''), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [error]);
+
     const handleStartSearch = async () => {
         setSearching(true);
         setError('');
+        setAnimateFail(false);
         try {
             const { data: conversationId, error: rpcError } = await supabase.rpc('match_user');
 
@@ -41,7 +50,9 @@ export default function Home() {
             if (conversationId) {
                 navigate(`/chat/${conversationId}`);
             } else {
+                setAnimateFail(true);
                 setError(t('no_match_found') || 'No matches found right now. Try expanding your preferences.');
+                setTimeout(() => setAnimateFail(false), 800);
             }
         } catch (err) {
             setError(err.message);
@@ -52,8 +63,20 @@ export default function Home() {
 
     return (
         <div className="home-container">
+            {error && (
+                <div className="status-notification error slide-in">
+                    <div className="status-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="15" y1="9" x2="9" y2="15" />
+                            <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
+                    </div>
+                    <span>{error}</span>
+                </div>
+            )}
+
             <div className="search-section">
-                {error && <div className="error-message">{error}</div>}
                 {searching ? (
                     <div className="preloader-wrapper">
                         <div className="heart-preloader">
@@ -65,7 +88,7 @@ export default function Home() {
                     </div>
                 ) : (
                     <button
-                        className="search-btn"
+                        className={`search-btn ${animateFail ? 'animate-fail' : ''}`}
                         onClick={handleStartSearch}
                     >
                         {t('btn_start_searching') || 'Start Searching'}

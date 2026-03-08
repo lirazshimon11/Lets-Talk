@@ -1,0 +1,315 @@
+/* ── Profile Card ── */
+.profile-card {
+    background: var(--card-bg);
+    border-radius: 24px;
+    padding: 32px 36px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.profile-edit-btn {
+    background: var(--accent-gradient);
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: opacity 0.2s;
+}
+
+.profile-edit-btn.cancel {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+}
+
+.profile-msg {
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+}
+
+.profile-msg.error {
+    color: #ff4d4d;
+    background: rgba(255, 77, 77, 0.08);
+}
+
+.profile-msg.success {
+    color: #4caf50;
+    background: rgba(76, 175, 80, 0.08);
+}
+
+/* ── Photo Viewer ── */
+.profile-viewer {
+    position: relative;
+    width: 100%;
+    height: 360px;
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--input-bg);
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+.profile-viewer-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    animation: fadeSlide 0.25s ease-out;
+}
+
+@keyframes fadeSlide {
+    from {
+        opacity: 0.6;
+        transform: scale(1.03);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.viewer-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.45);
+    border: none;
+    color: white;
+    font-size: 1.8rem;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(6px);
+    transition: background 0.2s, transform 0.15s;
+    line-height: 1;
+    padding: 0;
+}
+
+.viewer-nav:hover {
+    background: rgba(0, 0, 0, 0.7);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.viewer-nav.left {
+    left: 12px;
+}
+
+.viewer-nav.right {
+    right: 12px;
+}
+
+.viewer-dots {
+    position: absolute;
+    bottom: 12px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+.viewer-dot {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    transition: all 0.25s;
+    width: 8px;
+}
+
+.viewer-dot.active {
+    width: 22px;
+    background: white;
+}
+
+.viewer-empty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+/* ── Thumbnail Strip ── */
+.thumb-strip {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.thumb-item {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2.5px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    flex-shrink: 0;
+}
+
+.thumb-item:hover {
+    transform: scale(1.06);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.thumb-item.active {
+    border-color: #c084fc;
+    box-shadow: 0 0 0 1px #c084fc44;
+}
+
+.thumb-item.drag-over {
+    border-color: #f472b6;
+    box-shadow: 0 0 0 2px #f472b688, 0 0 20px #f472b644;
+    transform: scale(1.1);
+}
+
+.thumb-item.dragging {
+    opacity: 0.4;
+    transform: scale(0.95);
+}
+
+.thumb-item[draggable="true"] {
+    cursor: grab;
+}
+
+.thumb-item[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+}
+
+/* Green dot = main photo */
+.thumb-main-dot {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #4caf50;
+    border: 1.5px solid white;
+    pointer-events: none;
+}
+
+/* Drag handle hint */
+.thumb-drag-hint {
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.6);
+    pointer-events: none;
+    letter-spacing: 1px;
+}
+
+/* Add button */
+.thumb-add {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    border: 2px solid rgba(128, 128, 128, 0.25);
+    background: var(--input-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.2s, transform 0.15s;
+}
+
+.thumb-add:hover {
+    border-color: #c084fc;
+    transform: scale(1.06);
+}
+
+/* ── Context Menu ── */
+.ctx-menu {
+    position: fixed;
+    z-index: 9999;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 6px;
+    min-width: 180px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2);
+    animation: ctxAppear 0.12s ease-out;
+    backdrop-filter: blur(16px);
+}
+
+@keyframes ctxAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.ctx-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.15s;
+    text-align: left;
+}
+
+.ctx-item:hover {
+    background: var(--hover-bg);
+}
+
+.ctx-item-delete {
+    color: #f87171;
+}
+
+.ctx-item-delete:hover {
+    background: rgba(248, 113, 113, 0.12);
+}
+
+.ctx-item-copy {
+    color: #a78bfa;
+}
+
+.ctx-item-copy:hover {
+    background: rgba(167, 139, 250, 0.12);
+}
+
+.ctx-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 6px;
+}

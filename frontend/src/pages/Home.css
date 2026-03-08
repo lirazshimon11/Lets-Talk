@@ -21,39 +21,19 @@
 }
 
 .search-section {
-    padding: 60px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: var(--card-bg);
-    backdrop-filter: var(--backdrop-filter);
-    -webkit-backdrop-filter: var(--backdrop-filter);
-    border: 1px solid var(--glass-border);
-    border-radius: 40px;
-    box-shadow: var(--card-shadow);
     width: 100%;
     max-width: 600px;
-    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
-    overflow: hidden;
-}
-
-.search-section::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 60%);
-    pointer-events: none;
-    z-index: 0;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .search-section:hover {
     transform: translateY(-5px);
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.1);
 }
 
 .search-btn {
@@ -160,18 +140,92 @@
     }
 }
 
-.error-message {
-    color: #ef4444;
-    text-align: center;
-    font-size: 15px;
+/* Status Notification (Professional floating toast) */
+.status-notification {
+    position: fixed;
+    top: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50px;
+    color: var(--text-main);
     font-weight: 600;
-    margin-bottom: 25px;
-    padding: 12px 20px;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: 12px;
-    width: 100%;
-    z-index: 1;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    z-index: 2000;
+    white-space: nowrap;
+}
+
+[data-theme='dark'] .status-notification {
+    background: rgba(20, 20, 20, 0.4);
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+.status-notification.error {
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.status-notification.error .status-icon {
+    color: #ef4444;
+}
+
+.status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.slide-in {
+    animation: slideInDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -40px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+/* Button Fail Animation (Professional shake) */
+.search-btn.animate-fail {
+    animation: buttonShake 0.6s cubic-bezier(.36, .07, .19, .97) both;
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    box-shadow: 0 15px 40px rgba(239, 68, 68, 0.3);
+}
+
+@keyframes buttonShake {
+
+    10%,
+    90% {
+        transform: translate3d(-1px, 0, 0);
+    }
+
+    20%,
+    80% {
+        transform: translate3d(2px, 0, 0);
+    }
+
+    30%,
+    50%,
+    70% {
+        transform: translate3d(-4px, 0, 0);
+    }
+
+    40%,
+    60% {
+        transform: translate3d(4px, 0, 0);
+    }
 }
 
 /* Preloader Animation */
@@ -203,7 +257,7 @@
 }
 
 .heart-preloader span {
-    --c: #FF6B6B;
+    --c: #EC4899;
     position: absolute;
     display: block;
     height: 64px;
@@ -211,7 +265,7 @@
     background: var(--c);
     border: 1px solid var(--c);
     border-radius: 100%;
-    box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
+    box-shadow: 0 5px 20px rgba(236, 72, 153, 0.4);
     transition: background 0.5s, box-shadow 0.5s, border-color 0.5s;
 }
 

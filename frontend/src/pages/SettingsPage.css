@@ -1,0 +1,138 @@
+.spage-container {
+    width: 100%;
+    max-width: 720px;
+    margin: 36px auto 60px;
+    padding: 0 4px;
+    animation: fadeIn 0.35s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.spage-header {
+    margin-bottom: 32px;
+}
+
+.spage-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* ── Card ── */
+.spage-card {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 20px 22px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.spage-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent-gradient);
+    opacity: 0;
+    transition: opacity 0.2s;
+    border-radius: inherit;
+}
+
+.spage-card:not(.spage-card-disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    border-color: rgba(192, 132, 252, 0.4);
+}
+
+.spage-card:not(.spage-card-disabled):hover::before {
+    opacity: 0.04;
+}
+
+.spage-card-disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.spage-card-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.spage-card-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.spage-card-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.spage-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.spage-card-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* Chevron */
+.spage-chevron {
+    flex-shrink: 0;
+    transition: transform 0.18s;
+}
+
+.spage-card:not(.spage-card-disabled):hover .spage-chevron {
+    transform: translateX(3px);
+}
+
+/* Badges */
+.spage-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.badge-action {
+    background: var(--accent-gradient);
+    color: white;
+}
+
+.badge-soon {
+    background: rgba(128, 128, 128, 0.15);
+    color: var(--text-muted);
+}

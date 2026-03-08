@@ -5,8 +5,8 @@
   --bg-color: #f8fafc;
   --text-main: #0f172a;
   --text-muted: #64748b;
-  --accent-gradient: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
-  --accent-shadow: rgba(255, 107, 107, 0.4);
+  --accent-gradient: linear-gradient(135deg, #A855F7 0%, #EC4899 100%);
+  --accent-shadow: rgba(236, 72, 153, 0.4);
   --input-bg: rgba(255, 255, 255, 0.8);
   --border-color: rgba(0, 0, 0, 0.08);
   --button-hover: rgba(255, 255, 255, 0.9);
@@ -83,12 +83,12 @@ body::after {
 
 /* For Light mode vibrant mesh */
 :root body::before {
-  background: radial-gradient(circle, #FFB199 0%, transparent 70%);
+  background: radial-gradient(circle, #A855F7 0%, transparent 70%);
   opacity: 0.8;
 }
 
 :root body::after {
-  background: radial-gradient(circle, #FF0844 0%, transparent 70%);
+  background: radial-gradient(circle, #EC4899 0%, transparent 70%);
   opacity: 0.6;
 }
 
@@ -126,7 +126,7 @@ body::after {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  min-height: calc(100vh - 100px);
   padding: 20px;
 }
 
@@ -241,6 +241,42 @@ select.input-field {
   margin-bottom: 8px;
   font-weight: 600;
   text-align: left;
+}
+
+/* Required field — glowing red asterisk after the label */
+.input-label.required::after {
+  content: ' *';
+  color: #f87171;
+  font-weight: 800;
+  font-size: 1.1em;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.7);
+  animation: asterisk-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes asterisk-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Required input — red tint when EMPTY (placeholder visible) */
+input.input-field[required]:placeholder-shown {
+  border-color: rgba(248, 113, 113, 0.5);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.08), inset 0 0 0 1px rgba(248, 113, 113, 0.15);
+  background-color: rgba(248, 113, 113, 0.03);
+}
+
+/* Override: once focused, use the standard pink glow regardless of empty state */
+input.input-field[required]:focus {
+  border-color: #EC4899;
+  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15);
+  background-color: var(--input-bg);
 }
 
 .form-grid {

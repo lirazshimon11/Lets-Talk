@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import FullscreenImage from '../components/FullscreenImage';
 import './Navbar.css';
 
 export default function Navbar({ session }) {
@@ -10,14 +11,29 @@ export default function Navbar({ session }) {
     const location = useLocation();
     const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'light');
     const [userProfile, setUserProfile] = useState({});
+    const [selectedImg, setSelectedImg] = useState(null);
 
     useEffect(() => {
-        if (session?.user?.id) {
-            supabase.from('profiles').select('my_name, profile_image').eq('id', session.user.id).single()
-                .then(({ data }) => {
-                    if (data) setUserProfile(data);
-                });
-        }
+        const fetchProfile = () => {
+            if (session?.user?.id) {
+                supabase.from('profiles').select('my_name, profile_image').eq('id', session.user.id).single()
+                    .then(({ data }) => { if (data) setUserProfile(data); });
+            }
+        };
+
+        fetchProfile();
+
+        // Instant update from PersonalInfo — no Supabase round-trip needed
+        const handleProfileUpdated = (e) => {
+            if (e.detail?.profile_image !== undefined) {
+                setUserProfile(prev => ({ ...prev, profile_image: e.detail.profile_image }));
+            } else {
+                fetchProfile(); // fallback
+            }
+        };
+
+        window.addEventListener('profile-updated', handleProfileUpdated);
+        return () => window.removeEventListener('profile-updated', handleProfileUpdated);
     }, [session]);
 
     const toggleTheme = () => {
@@ -38,7 +54,7 @@ export default function Navbar({ session }) {
 
     const isHome = location.pathname === '/';
     const isChats = location.pathname === '/chats';
-    const isSettings = location.pathname === '/settings';
+    const isSettings = location.pathname === '/settings' || location.pathname === '/preferences';
 
     return (
         <nav className="navbar">
@@ -56,18 +72,29 @@ export default function Navbar({ session }) {
                             <Link to="/chats" className={`nav-link ${isChats ? 'active' : ''}`}>
                                 {t('nav_chats')}
                             </Link>
-                            <Link to="/preferences" className={`nav-link ${location.pathname === '/preferences' ? 'active' : ''}`}>
-                                {t('nav_settings') || 'Preferences'}
+                            <Link to="/settings" className={`nav-link ${isSettings ? 'active' : ''}`}>
+                                Settings
                             </Link>
                             <button onClick={toggleTheme} className="btn-theme-toggle" title="Toggle Light/Dark Mode">
                                 {theme === 'light' ? '🌙' : '☀️'}
                             </button>
-                            <Link to="/profile" className="navbar-profile" style={{ textDecoration: 'none' }}>
-                                <div className="navbar-avatar">
-                                    {userProfile.profile_image ? <img src={userProfile.profile_image} alt="User" /> : userProfile.my_name ? userProfile.my_name.charAt(0).toUpperCase() : session?.user?.email?.charAt(0).toUpperCase() || '?'}
+                            <div className="navbar-profile" onClick={() => navigate('/settings')}>
+                                <div className="navbar-avatar"
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={(e) => {
+                                        if (userProfile.profile_image) {
+                                            e.stopPropagation();
+                                            setSelectedImg(userProfile.profile_image);
+                                        }
+                                    }}>
+                                    {userProfile.profile_image ? (
+                                        <img src={userProfile.profile_image} alt="User avatar" />
+                                    ) : (
+                                        userProfile.my_name ? userProfile.my_name[0] : 'U'
+                                    )}
                                 </div>
                                 <span className="navbar-username">{userProfile.my_name || session?.user?.email?.split('@')[0]}</span>
-                            </Link>
+                            </div>
                             <button onClick={handleLogout} className="btn-logout" title="Logout">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
                             </button>
@@ -83,6 +110,8 @@ export default function Navbar({ session }) {
                     )}
                 </div>
             </div>
+            {/* Fullscreen Image Overlay */}
+            <FullscreenImage src={selectedImg} onClose={() => setSelectedImg(null)} />
         </nav>
     );
 }

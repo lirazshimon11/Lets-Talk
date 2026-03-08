@@ -33,7 +33,9 @@ export default function Login() {
     return (
         <div className="auth-container">
             <div className="auth-box">
-                <h1 className="brand-title">Let's Talk</h1>
+                <Link to="/" style={{ textDecoration: 'none' }}>
+                    <h1 className="brand-title">Let's Talk</h1>
+                </Link>
                 <form onSubmit={handleLogin}>
                     {error && <p style={{ color: '#ff4d4d', fontSize: '14px', marginBottom: '10px' }}>{error}</p>}
                     <input

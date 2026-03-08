@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
-import imageCompression from 'browser-image-compression';
-import { Camera } from 'lucide-react';
+import CustomSelect from '../components/CustomSelect';
 
 const PREF_HAIR_OPTIONS = ['Blonde', 'Brunette', 'Black', 'Red', 'Gray', 'White', 'Bald', 'Dyed/Vibrant', 'Other', 'Any'];
 const HAIR_OPTIONS = ['Blonde', 'Brunette', 'Black', 'Red', 'Gray', 'White', 'Bald', 'Dyed/Vibrant', 'Other', 'Any'];
@@ -21,11 +20,23 @@ const LANGUAGE_OPTIONS = [
     { code: 'hi', label: 'Hindi' }
 ];
 
+const AVATAR_OPTIONS = [
+    'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4',
+    'https://api.dicebear.com/9.x/avataaars/svg?seed=Aneka&backgroundColor=c0aede',
+    'https://api.dicebear.com/9.x/avataaars/svg?seed=Jocelyn&backgroundColor=d1d4f9',
+    'https://api.dicebear.com/9.x/avataaars/svg?seed=Robert&backgroundColor=ffdfbf',
+    'https://api.dicebear.com/9.x/avataaars/svg?seed=Sarah&backgroundColor=ffd5dc',
+    'https://api.dicebear.com/9.x/avataaars/svg?seed=Leo&backgroundColor=b6e3f4',
+    'https://api.dicebear.com/9.x/avataaars/svg?seed=Nolan&backgroundColor=c0aede',
+    'https://api.dicebear.com/9.x/avataaars/svg?seed=Diana&backgroundColor=d1d4f9',
+    'https://api.dicebear.com/9.x/avataaars/svg?seed=Jack&backgroundColor=ffdfbf',
+    'https://api.dicebear.com/9.x/avataaars/svg?seed=Aiden&backgroundColor=ffd5dc'
+];
+
 export default function Preferences() {
     const { t, i18n } = useTranslation();
     const [step, setStep] = useState(1);
-    const [uploadingImage, setUploadingImage] = useState(false);
-    const fileInputRef = useRef(null);
+
     const [details, setDetails] = useState({
         my_name: '',
         my_country: 'USA',
@@ -38,7 +49,7 @@ export default function Preferences() {
         my_eyes: 'Brown',
         my_ethnicity: 'Caucasian',
         my_religion: 'Other',
-        profile_image: ''
+        my_avatar: AVATAR_OPTIONS[0],
     });
 
     const [preferences, setPreferences] = useState({
@@ -59,7 +70,10 @@ export default function Preferences() {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [saved, setSaved] = useState(false);
     const navigate = useNavigate();
+
+
 
     useEffect(() => {
         const fetchPref = async () => {
@@ -88,7 +102,7 @@ export default function Preferences() {
                         my_eyes: data.my_eyes || 'Brown',
                         my_ethnicity: data.my_ethnicity || 'Caucasian',
                         my_religion: data.my_religion || 'Other',
-                        profile_image: data.profile_image || ''
+                        my_avatar: data.my_avatar || AVATAR_OPTIONS[0],
                     });
                     setPreferences({
                         match_gender: data.match_gender || 'Female',
@@ -143,40 +157,6 @@ export default function Preferences() {
         }
     };
 
-    const handleImageUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        setUploadingImage(true);
-        setError('');
-
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error('Not logged in');
-
-            const options = { maxSizeMB: 1, maxWidthOrHeight: 800, useWebWorker: true };
-            const compressedFile = await imageCompression(file, options);
-
-            const fileExt = compressedFile.name.split('.').pop();
-            const fileName = `${session.user.id}-${Math.random()}.${fileExt}`;
-            const filePath = `user_avatars/${fileName}`;
-
-            const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, compressedFile, { upsert: true });
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-
-            setDetails({ ...details, profile_image: publicUrl });
-            await supabase.from('profiles').update({ profile_image: publicUrl }).eq('id', session.user.id);
-
-        } catch (err) {
-            console.error('Upload Error:', err);
-            setError(err.message || 'Failed to upload image.');
-        } finally {
-            setUploadingImage(false);
-        }
-    };
-
     if (loading) return <div className="auth-container"><div className="brand-title">{t('loading')}</div></div>;
 
     const renderImportance = (field) => (
@@ -196,218 +176,208 @@ export default function Preferences() {
     );
 
     return (
-        <div className="auth-container">
-            <div className="auth-box" style={{ maxWidth: '450px' }}>
-                <h2 className="brand-title" style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>
-                    {step === 1 ? t('step_1') : t('step_2')}
-                </h2>
+        <>
+            <div className="auth-container">
+                <div className="auth-box" style={{ maxWidth: '450px' }}>
+                    <h2 className="brand-title" style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>
+                        {step === 1 ? t('step_1') : t('step_2')}
+                    </h2>
 
-                <form onSubmit={handleSubmit}>
-                    {error && <p style={{ color: '#ff4d4d', fontSize: '14px' }}>{error}</p>}
+                    <form onSubmit={handleSubmit}>
+                        {error && <p style={{ color: '#ff4d4d', fontSize: '14px' }}>{error}</p>}
 
-                    {step === 1 && (
-                        <div className="form-grid">
+                        {step === 1 && (
+                            <div className="form-grid">
 
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px', gridColumn: '1 / -1' }}>
-                                <div
-                                    style={{
-                                        position: 'relative', width: '100px', height: '100px', borderRadius: '50%',
-                                        overflow: 'hidden', border: '3px solid var(--accent-gradient)', cursor: 'pointer',
-                                        boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
-                                    }}
-                                    onClick={() => { if (!uploadingImage) fileInputRef.current?.click(); }}
-                                >
-                                    {details.profile_image ? (
-                                        <img src={details.profile_image} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: uploadingImage ? 0.5 : 1 }} />
-                                    ) : (
-                                        <div style={{ width: '100%', height: '100%', background: 'var(--input-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-muted)' }}>
-                                            {details.my_name ? details.my_name.charAt(0).toUpperCase() : '?'}
-                                        </div>
-                                    )}
-
-                                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '35%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-                                        {uploadingImage ? (
-                                            <div className="heart-preloader" style={{ transform: 'scale(0.3)' }}><span></span><span></span><span></span></div>
-                                        ) : (
-                                            <Camera size={16} color="white" />
-                                        )}
-                                    </div>
+                                <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                                    <label className="input-label required">{t('lbl_full_name')}</label>
+                                    <input type="text" required className="input-field" value={details.my_name} onChange={e => setDetails({ ...details, my_name: e.target.value })} placeholder="John Doe" />
                                 </div>
-                                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" style={{ display: 'none' }} />
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '10px' }}>Tap to add a profile picture</p>
-                            </div>
-
-                            <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                                <label className="input-label">{t('lbl_full_name')}</label>
-                                <input type="text" required className="input-field" value={details.my_name} onChange={e => setDetails({ ...details, my_name: e.target.value })} placeholder="John Doe" />
-                            </div>
-                            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                                <div style={{ flex: 1, textAlign: 'left' }}>
-                                    <label className="input-label">{t('lbl_country')}</label>
-                                    <select className="input-field" value={details.my_country} onChange={e => setDetails({ ...details, my_country: e.target.value })}>
-                                        {COUNTRY_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                    </select>
-                                </div>
-                                <div style={{ flex: 1, textAlign: 'left' }}>
-                                    <label className="input-label">{t('lbl_app_language')}</label>
-                                    <select className="input-field" value={details.my_language} onChange={e => {
-                                        setDetails({ ...details, my_language: e.target.value });
-                                        i18n.changeLanguage(e.target.value); // preview language change
-                                    }}>
-                                        {LANGUAGE_OPTIONS.map(opt => <option key={opt.code} value={opt.code}>{opt.label}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                                <label className="input-label">{t('lbl_age')}</label>
-                                <input type="number" required min="18" max="120" className="input-field" value={details.my_age} onChange={e => setDetails({ ...details, my_age: e.target.value })} placeholder="25" />
-                            </div>
-                            <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                                <label className="input-label">{t('lbl_height')}</label>
-                                <input type="text" className="input-field" value={details.my_height} onChange={e => setDetails({ ...details, my_height: e.target.value })} placeholder="180 cm" />
-                            </div>
-                            <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                                <label className="input-label">{t('lbl_weight')}</label>
-                                <input type="text" className="input-field" value={details.my_weight} onChange={e => setDetails({ ...details, my_weight: e.target.value })} placeholder="75 kg" />
-                            </div>
-                            <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                                <label className="input-label">{t('lbl_identify')}</label>
-                                <select className="input-field" value={details.my_gender} onChange={e => setDetails({ ...details, my_gender: e.target.value })}>
-                                    {GENDER_OPTIONS.filter(o => o !== 'Any').map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                            </div>
-                            <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                                <label className="input-label">{t('lbl_hair')}</label>
-                                <select className="input-field" value={details.my_hair} onChange={e => setDetails({ ...details, my_hair: e.target.value })}>
-                                    {HAIR_OPTIONS.filter(o => o !== 'Any').map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                            </div>
-                            <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                                <label className="input-label">{t('lbl_eyes')}</label>
-                                <select className="input-field" value={details.my_eyes} onChange={e => setDetails({ ...details, my_eyes: e.target.value })}>
-                                    {EYE_OPTIONS.filter(o => o !== 'Any').map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                            </div>
-                            <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                                <label className="input-label">{t('lbl_ethnicity')}</label>
-                                <select className="input-field" value={details.my_ethnicity} onChange={e => setDetails({ ...details, my_ethnicity: e.target.value })}>
-                                    {ETHNICITY_OPTIONS.filter(o => o !== 'Any').map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                            </div>
-                            <div style={{ textAlign: 'left', marginBottom: '20px' }}>
-                                <label className="input-label">{t('lbl_religion')}</label>
-                                <select className="input-field" value={details.my_religion} onChange={e => setDetails({ ...details, my_religion: e.target.value })}>
-                                    {RELIGION_OPTIONS.filter(o => o !== 'Any').map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 2 && (
-                        <div className="form-grid">
-                            <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '14px', width: '100%', textAlign: 'left' }}>{t('lbl_looking_for')}</p>
-
-                            <div style={{ textAlign: 'left', marginBottom: '20px' }}>
-                                <label className="input-label">{t('lbl_i_looking_for')}</label>
-                                <select className="input-field" value={preferences.match_gender} onChange={e => setPreferences({ ...preferences, match_gender: e.target.value })}>
-                                    {GENDER_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                                {renderImportance('match_gender_importance')}
-                            </div>
-
-                            <div style={{ textAlign: 'left', marginBottom: '20px' }}>
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <label className="input-label">{t('lbl_min_age')}</label>
-                                        <input type="number" className="input-field" required min="18" max="120" value={preferences.match_age_min} onChange={e => setPreferences({ ...preferences, match_age_min: e.target.value })} />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label className="input-label">{t('lbl_max_age')}</label>
-                                        <input type="number" className="input-field" required min="18" max="120" value={preferences.match_age_max} onChange={e => setPreferences({ ...preferences, match_age_max: e.target.value })} />
-                                    </div>
-                                </div>
-                                {renderImportance('match_age_importance')}
-                            </div>
-
-                            <div style={{ textAlign: 'left', marginBottom: '20px' }}>
-                                <label className="input-label">{t('lbl_pref_hair')}</label>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '10px 0' }}>
-                                    {PREF_HAIR_OPTIONS.map(opt => {
-                                        const selectedHairs = preferences.match_hair ? preferences.match_hair.split(',') : [];
-                                        const isSelected = selectedHairs.includes(opt);
-                                        const toggleHair = () => {
-                                            if (opt === 'Any') {
-                                                setPreferences({ ...preferences, match_hair: 'Any' });
-                                                return;
-                                            }
-                                            let newSelection = selectedHairs.filter(h => h !== 'Any');
-                                            if (isSelected) newSelection = newSelection.filter(h => h !== opt);
-                                            else newSelection.push(opt);
-                                            if (newSelection.length === 0) newSelection.push('Any');
-                                            setPreferences({ ...preferences, match_hair: newSelection.join(',') });
-                                        };
-                                        return (
-                                            <button
-                                                key={opt} type="button" onClick={toggleHair}
+                                <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                                    <label className="input-label required">Select Your Avatar</label>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '-4px', marginBottom: '12px' }}>This represents you before photos are revealed to matches.</p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
+                                        {AVATAR_OPTIONS.map((url, i) => (
+                                            <div
+                                                key={i}
+                                                onClick={() => setDetails({ ...details, my_avatar: url })}
                                                 style={{
-                                                    padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid var(--border-color)',
-                                                    background: isSelected ? 'var(--accent-gradient)' : 'var(--input-bg)',
-                                                    color: isSelected ? 'white' : 'var(--text-main)', cursor: 'pointer'
-                                                }}>
-                                                {opt}
-                                            </button>
-                                        );
-                                    })}
+                                                    cursor: 'pointer',
+                                                    borderRadius: '50%',
+                                                    border: details.my_avatar === url ? '3px solid var(--accent)' : '3px solid transparent',
+                                                    padding: '2px',
+                                                    transition: 'all 0.2s',
+                                                    transform: details.my_avatar === url ? 'scale(1.05)' : 'scale(1)',
+                                                    background: details.my_avatar === url ? 'var(--accent-gradient)' : 'transparent'
+                                                }}
+                                            >
+                                                <img src={url} alt={`Avatar ${i}`} style={{ width: '100%', height: 'auto', borderRadius: '50%', display: 'block' }} />
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                {renderImportance('match_hair_importance')}
+                                <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                                    <div style={{ flex: 1, textAlign: 'left' }}>
+                                        <label className="input-label">{t('lbl_country')}</label>
+                                        <CustomSelect value={details.my_country} onChange={e => setDetails({ ...details, my_country: e.target.value })} options={COUNTRY_OPTIONS} />
+                                    </div>
+                                    <div style={{ flex: 1, textAlign: 'left' }}>
+                                        <label className="input-label">{t('lbl_app_language')}</label>
+                                        <CustomSelect value={details.my_language} onChange={e => { setDetails({ ...details, my_language: e.target.value }); i18n.changeLanguage(e.target.value); }} options={LANGUAGE_OPTIONS.map(o => ({ value: o.code, label: o.label }))} />
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                                    <label className="input-label required">{t('lbl_age')}</label>
+                                    <input type="number" required min="18" max="120" className="input-field" value={details.my_age} onChange={e => setDetails({ ...details, my_age: e.target.value })} placeholder="25" />
+                                </div>
+                                <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                                    <label className="input-label">{t('lbl_height')}</label>
+                                    <input type="text" className="input-field" value={details.my_height} onChange={e => setDetails({ ...details, my_height: e.target.value })} placeholder="180 cm" />
+                                </div>
+                                <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                                    <label className="input-label">{t('lbl_weight')}</label>
+                                    <input type="text" className="input-field" value={details.my_weight} onChange={e => setDetails({ ...details, my_weight: e.target.value })} placeholder="75 kg" />
+                                </div>
+                                <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                                    <label className="input-label">{t('lbl_identify')}</label>
+                                    <CustomSelect value={details.my_gender} onChange={e => setDetails({ ...details, my_gender: e.target.value })} options={GENDER_OPTIONS.filter(o => o !== 'Any')} />
+                                </div>
+                                <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                                    <label className="input-label">{t('lbl_hair')}</label>
+                                    <CustomSelect value={details.my_hair} onChange={e => setDetails({ ...details, my_hair: e.target.value })} options={HAIR_OPTIONS.filter(o => o !== 'Any')} />
+                                </div>
+                                <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                                    <label className="input-label">{t('lbl_eyes')}</label>
+                                    <CustomSelect value={details.my_eyes} onChange={e => setDetails({ ...details, my_eyes: e.target.value })} options={EYE_OPTIONS.filter(o => o !== 'Any')} />
+                                </div>
+                                <div style={{ textAlign: 'left', marginBottom: '15px' }}>
+                                    <label className="input-label">{t('lbl_ethnicity')}</label>
+                                    <CustomSelect value={details.my_ethnicity} onChange={e => setDetails({ ...details, my_ethnicity: e.target.value })} options={ETHNICITY_OPTIONS.filter(o => o !== 'Any')} />
+                                </div>
+                                <div style={{ textAlign: 'left', marginBottom: '20px' }}>
+                                    <label className="input-label">{t('lbl_religion')}</label>
+                                    <CustomSelect value={details.my_religion} onChange={e => setDetails({ ...details, my_religion: e.target.value })} options={RELIGION_OPTIONS.filter(o => o !== 'Any')} />
+                                </div>
                             </div>
+                        )}
 
-                            <div style={{ textAlign: 'left', marginBottom: '20px' }}>
-                                <label className="input-label">{t('lbl_pref_eyes')}</label>
-                                <select className="input-field" value={preferences.match_eyes} onChange={e => setPreferences({ ...preferences, match_eyes: e.target.value })}>
-                                    {EYE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                                {renderImportance('match_eyes_importance')}
+                        {step === 2 && (
+                            <div className="form-grid">
+                                <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '14px', width: '100%', textAlign: 'left' }}>{t('lbl_looking_for')}</p>
+
+                                <div style={{ textAlign: 'left', marginBottom: '20px' }}>
+                                    <label className="input-label">{t('lbl_i_looking_for')}</label>
+                                    <CustomSelect value={preferences.match_gender} onChange={e => setPreferences({ ...preferences, match_gender: e.target.value })} options={GENDER_OPTIONS} />
+                                    {renderImportance('match_gender_importance')}
+                                </div>
+
+                                <div style={{ textAlign: 'left', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <label className="input-label">{t('lbl_min_age')}</label>
+                                            <input type="number" className="input-field" required min="18" max="120" value={preferences.match_age_min} onChange={e => setPreferences({ ...preferences, match_age_min: e.target.value })} />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <label className="input-label">{t('lbl_max_age')}</label>
+                                            <input type="number" className="input-field" required min="18" max="120" value={preferences.match_age_max} onChange={e => setPreferences({ ...preferences, match_age_max: e.target.value })} />
+                                        </div>
+                                    </div>
+                                    {renderImportance('match_age_importance')}
+                                </div>
+
+                                <div style={{ textAlign: 'left', marginBottom: '20px' }}>
+                                    <label className="input-label">{t('lbl_pref_hair')}</label>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '10px 0' }}>
+                                        {PREF_HAIR_OPTIONS.map(opt => {
+                                            const selectedHairs = preferences.match_hair ? preferences.match_hair.split(',') : [];
+                                            const isSelected = selectedHairs.includes(opt);
+                                            const toggleHair = () => {
+                                                if (opt === 'Any') {
+                                                    setPreferences({ ...preferences, match_hair: 'Any' });
+                                                    return;
+                                                }
+                                                let newSelection = selectedHairs.filter(h => h !== 'Any');
+                                                if (isSelected) newSelection = newSelection.filter(h => h !== opt);
+                                                else newSelection.push(opt);
+                                                if (newSelection.length === 0) newSelection.push('Any');
+                                                setPreferences({ ...preferences, match_hair: newSelection.join(',') });
+                                            };
+                                            return (
+                                                <button
+                                                    key={opt} type="button" onClick={toggleHair}
+                                                    style={{
+                                                        padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid var(--border-color)',
+                                                        background: isSelected ? 'var(--accent-gradient)' : 'var(--input-bg)',
+                                                        color: isSelected ? 'white' : 'var(--text-main)', cursor: 'pointer'
+                                                    }}>
+                                                    {opt}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {renderImportance('match_hair_importance')}
+                                </div>
+
+                                <div style={{ textAlign: 'left', marginBottom: '20px' }}>
+                                    <label className="input-label">{t('lbl_pref_eyes')}</label>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '10px 0' }}>
+                                        {EYE_OPTIONS.map(opt => {
+                                            const selectedEyes = preferences.match_eyes ? preferences.match_eyes.split(',') : [];
+                                            const isSelected = selectedEyes.includes(opt);
+                                            const toggleEye = () => {
+                                                if (opt === 'Any') {
+                                                    setPreferences({ ...preferences, match_eyes: 'Any' });
+                                                    return;
+                                                }
+                                                let newSelection = selectedEyes.filter(e => e !== 'Any');
+                                                if (isSelected) newSelection = newSelection.filter(e => e !== opt);
+                                                else newSelection.push(opt);
+                                                if (newSelection.length === 0) newSelection.push('Any');
+                                                setPreferences({ ...preferences, match_eyes: newSelection.join(',') });
+                                            };
+                                            return (
+                                                <button
+                                                    key={opt} type="button" onClick={toggleEye}
+                                                    style={{
+                                                        padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid var(--border-color)',
+                                                        background: isSelected ? 'var(--accent-gradient)' : 'var(--input-bg)',
+                                                        color: isSelected ? 'white' : 'var(--text-main)', cursor: 'pointer'
+                                                    }}>
+                                                    {opt}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {renderImportance('match_eyes_importance')}
+                                </div>
+
+                                <div style={{ textAlign: 'left', marginBottom: '20px' }}>
+                                    <label className="input-label">{t('lbl_pref_ethnicity')}</label>
+                                    <CustomSelect value={preferences.match_ethnicity} onChange={e => setPreferences({ ...preferences, match_ethnicity: e.target.value })} options={ETHNICITY_OPTIONS} />
+                                    {renderImportance('match_ethnicity_importance')}
+                                </div>
+
+                                <div style={{ textAlign: 'left', marginBottom: '20px' }}>
+                                    <label className="input-label">{t('lbl_pref_religion')}</label>
+                                    <CustomSelect value={preferences.match_religion} onChange={e => setPreferences({ ...preferences, match_religion: e.target.value })} options={RELIGION_OPTIONS} />
+                                    {renderImportance('match_religion_importance')}
+                                </div>
                             </div>
+                        )}
 
-                            <div style={{ textAlign: 'left', marginBottom: '20px' }}>
-                                <label className="input-label">{t('lbl_pref_ethnicity')}</label>
-                                <select className="input-field" value={preferences.match_ethnicity} onChange={e => setPreferences({ ...preferences, match_ethnicity: e.target.value })}>
-                                    {ETHNICITY_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                                {renderImportance('match_ethnicity_importance')}
-                            </div>
-
-                            <div style={{ textAlign: 'left', marginBottom: '20px' }}>
-                                <label className="input-label">{t('lbl_pref_religion')}</label>
-                                <select className="input-field" value={preferences.match_religion} onChange={e => setPreferences({ ...preferences, match_religion: e.target.value })}>
-                                    {RELIGION_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                                {renderImportance('match_religion_importance')}
-                            </div>
-                        </div>
-                    )}
-
-                    <button type="submit" className="btn-primary">
-                        {step === 1 ? t('btn_next_step') : t('btn_save_start')}
-                    </button>
-
-                    {step === 2 && (
-                        <button type="button" onClick={() => setStep(1)} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', marginTop: '15px' }}>
-                            {t('btn_back')}
+                        <button type="submit" className="btn-primary">
+                            {step === 1 ? t('btn_next_step') : t('btn_save_start')}
                         </button>
-                    )}
 
-                    <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                        <button
-                            type="button"
-                            onClick={async () => { await supabase.auth.signOut(); navigate('/login'); }}
-                            style={{ background: 'transparent', color: '#ff4d4d', border: 'none', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}>
-                            Log Out & Start Over
-                        </button>
-                    </div>
-                </form>
+                        {step === 2 && (
+                            <button type="button" onClick={() => setStep(1)} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', marginTop: '15px' }}>
+                                {t('btn_back')}
+                            </button>
+                        )}
+
+                    </form>
+                </div>
             </div>
-        </div>
+        </>
     );
 }
