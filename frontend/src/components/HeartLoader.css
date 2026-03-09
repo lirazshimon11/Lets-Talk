@@ -1,0 +1,79 @@
+/* Full-screen overlay for the heart loader */
+.heart-loader-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-main, #0d0d0d);
+    z-index: 9999;
+    animation: heartLoaderFadeIn 0.2s ease;
+}
+
+@keyframes heartLoaderFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* ── Reuse the heart animation from Home.css ── */
+.heart-loader-overlay .preloader-wrapper {
+    position: relative;
+    width: 240px;
+    height: 240px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 20px;
+}
+
+.heart-loader-overlay .heart-preloader {
+    animation: heart_rotate 2.3s cubic-bezier(0.75, 0, 0.5, 1) infinite;
+    position: relative;
+    z-index: 10;
+}
+
+.heart-loader-overlay .heart-preloader span {
+    --c: #EC4899;
+    position: absolute;
+    display: block;
+    height: 64px;
+    width: 64px;
+    background: var(--c);
+    border: 1px solid var(--c);
+    border-radius: 100%;
+    box-shadow: 0 5px 20px rgba(236, 72, 153, 0.4);
+}
+
+.heart-loader-overlay .heart-preloader span:nth-child(1) {
+    transform: translate(-28px, -28px);
+    animation: heart_shape_1 2.3s cubic-bezier(0.75, 0, 0.5, 1) infinite;
+}
+
+.heart-loader-overlay .heart-preloader span:nth-child(2) {
+    transform: translate(28px, -28px);
+    animation: heart_shape_2 2.3s cubic-bezier(0.75, 0, 0.5, 1) infinite;
+}
+
+.heart-loader-overlay .heart-preloader span:nth-child(3) {
+    position: relative;
+    border-radius: 0px;
+    transform: scale(0.98) rotate(-45deg);
+    animation: heart_shape_3 2.3s cubic-bezier(0.75, 0, 0.5, 1) infinite;
+}
+
+.heart-loader-overlay .heart-shadow {
+    position: relative;
+    margin-top: 60px;
+    height: 16px;
+    width: 64px;
+    border-radius: 50%;
+    background-color: var(--border-color, rgba(255, 255, 255, 0.1));
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    animation: heart_shadow 2.3s cubic-bezier(0.75, 0, 0.5, 1) infinite;
+}

@@ -1,57 +1,90 @@
+/* ── Photo Upload Page ── */
 .photo-upload-container {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: 32px 20px;
     background: var(--app-bg);
+    position: relative;
+    overflow: hidden;
 }
 
+/* Ambient glow blobs */
+.photo-upload-container::before,
+.photo-upload-container::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.photo-upload-container::before {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(183, 60, 255, 0.18), transparent 70%);
+    top: -80px;
+    left: -80px;
+}
+
+.photo-upload-container::after {
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(236, 72, 153, 0.15), transparent 70%);
+    bottom: -60px;
+    right: -60px;
+}
+
+/* Card */
 .photo-upload-box {
+    position: relative;
+    z-index: 1;
     width: 100%;
-    max-width: 480px;
+    max-width: 580px;
     background: var(--card-bg);
-    border-radius: 24px;
-    padding: 32px 28px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-    border: 1px solid var(--border-color);
+    border-radius: 28px;
+    padding: 40px 36px 36px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--border-color);
+}
+
+/* Header */
+.photo-upload-header {
+    text-align: center;
+    margin-bottom: 28px;
 }
 
 .photo-upload-title {
-    font-size: 2rem;
+    font-size: 2.2rem;
     margin-bottom: 8px;
-    text-align: center;
 }
 
 .photo-upload-subtitle {
-    text-align: center;
     color: var(--text-muted);
-    font-size: 0.9rem;
-    margin-bottom: 24px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    margin: 0;
 }
 
 .photo-upload-error {
-    color: #ff4d4d;
-    font-size: 0.85rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #f87171;
+    font-size: 0.84rem;
     text-align: center;
-    margin-bottom: 12px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    margin-bottom: 16px;
 }
 
-/* === GRID === */
+/* ====== PHOTO GRID ====== */
 .photo-grid {
     display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
-    height: 320px;
-}
-
-.photo-slot-main {
-    flex: 1.2;
-    height: 100%;
-    position: relative;
-    border-radius: 16px;
-    overflow: hidden;
-    cursor: pointer;
+    gap: 12px;
+    margin-bottom: 24px;
+    height: 360px;
+    /* Restored the original large height */
 }
 
 .photo-grid-small {
@@ -59,57 +92,86 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
-    gap: 8px;
+    gap: 12px;
     height: 100%;
 }
 
-.photo-slot-small {
-    border-radius: 12px;
-    overflow: hidden;
+/* ── Main slot ── */
+.photo-slot-main {
+    flex: 1.35;
+    height: 100%;
     position: relative;
+    border-radius: 20px;
+    overflow: hidden;
     cursor: pointer;
+    transition: transform 0.2s ease;
 }
 
-/* Shared slot states */
+.photo-slot-main:hover {
+    transform: scale(1.01);
+}
+
+/* ── Small slots ── */
+.photo-slot-small {
+    height: 100%;
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.photo-slot-small:hover {
+    transform: scale(1.02);
+}
+
+/* ── Empty state ── */
 .slot-empty {
     width: 100%;
     height: 100%;
-    background: var(--input-bg);
-    border: 2px solid rgba(128, 128, 128, 0.25);
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px dashed rgba(255, 255, 255, 0.15);
     border-radius: inherit;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s, border-color 0.2s;
+    gap: 6px;
     cursor: default;
+    transition: background 0.2s, border-color 0.2s;
 }
 
 .slot-empty.slot-next {
-    border-color: rgba(180, 100, 220, 0.4);
+    border-color: rgba(183, 60, 255, 0.6);
+    background: rgba(183, 60, 255, 0.05);
     cursor: pointer;
 }
 
 .slot-empty.slot-next:hover {
-    background: var(--hover-bg);
+    background: rgba(183, 60, 255, 0.07);
     border-color: var(--accent);
+    box-shadow: inset 0 0 0 3px rgba(183, 60, 255, 0.12);
 }
 
 .slot-empty.slot-disabled {
-    opacity: 0.4;
+    opacity: 0.3;
     cursor: not-allowed;
 }
 
 .slot-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: var(--border-color);
 }
 
+/* ── Filled state ── */
 .slot-filled {
     width: 100%;
     height: 100%;
     position: relative;
+    border-radius: inherit;
+    overflow: hidden;
 }
 
 .slot-img {
@@ -119,23 +181,14 @@
     display: block;
 }
 
-.slot-loading {
-    width: 100%;
-    height: 100%;
-    background: var(--input-bg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Controls overlay on filled slots */
+/* Controls overlay */
 .slot-controls {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 6px;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+    padding: 10px 8px 8px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, transparent 100%);
     display: flex;
     justify-content: center;
     gap: 6px;
@@ -148,68 +201,106 @@
 }
 
 .slot-btn {
-    background: rgba(255, 255, 255, 0.25);
-    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 50%;
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     color: white;
-    backdrop-filter: blur(4px);
-    transition: background 0.2s;
+    backdrop-filter: blur(6px);
+    transition: background 0.2s, transform 0.15s;
 }
 
 .slot-btn:hover {
-    background: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.38);
+    transform: scale(1.1);
 }
 
 .slot-btn-remove {
-    background: rgba(220, 60, 60, 0.6);
+    background: rgba(220, 38, 38, 0.55);
+    border-color: rgba(255, 100, 100, 0.3);
 }
 
 .slot-btn-remove:hover {
-    background: rgba(220, 60, 60, 0.9);
+    background: rgba(220, 38, 38, 0.9);
 }
 
+/* Main badge */
 .photo-main-badge {
     position: absolute;
     top: 10px;
     left: 10px;
     background: var(--accent-gradient);
     color: white;
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 3px 10px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 4px 10px;
     border-radius: 20px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
     pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Bottom info */
+/* ====== FOOTER ====== */
+.photo-upload-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .photo-upload-counter {
-    text-align: center;
-    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.78rem;
     color: var(--text-muted);
-    margin-bottom: 20px;
 }
 
-/* Progress bar shown while uploading */
+.photo-counter-dots {
+    display: flex;
+    gap: 5px;
+}
+
+.photo-counter-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-color);
+    transition: background 0.25s, transform 0.25s;
+}
+
+.photo-counter-dot.filled {
+    background: linear-gradient(135deg, #b83cff, #ec4899);
+    transform: scale(1.25);
+}
+
+/* Progress bar */
 .upload-progress-bar-wrap {
     width: 100%;
-    height: 6px;
+    height: 5px;
     background: var(--input-bg);
-    border-radius: 6px;
+    border-radius: 99px;
     overflow: hidden;
-    margin-bottom: 14px;
 }
 
 .upload-progress-bar {
     height: 100%;
     background: var(--accent-gradient);
-    border-radius: 6px;
-    transition: width 0.3s ease;
+    border-radius: 99px;
+    transition: width 0.35s ease;
+}
+
+/* CTA Button */
+.photo-upload-btn {
+    width: 100%;
+    margin-top: 4px;
+    font-size: 1rem;
+    padding: 14px;
+    border-radius: 14px;
+    letter-spacing: 0.02em;
 }

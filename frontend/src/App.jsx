@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import Navbar from './components/Navbar';
 import PersonalInfo from './pages/PersonalInfo';
 import Chats from './pages/Chats';
+import HeartLoader from './components/HeartLoader';
 
 const ProtectedRoute = ({ children, session }) => {
   if (!session) return <Navigate to="/login" replace />;
@@ -42,7 +43,7 @@ const ProfileMustGuard = ({ children, session }) => {
     checkProfile();
   }, [session, navigate]);
 
-  if (loading) return <div style={{ color: 'white', textAlign: 'center', marginTop: '20vh' }}>Loading...</div>;
+  if (loading) return <HeartLoader />;
 
   return children;
 };
@@ -51,7 +52,7 @@ const WithNavbar = ({ children, session }) => {
   return (
     <>
       <Navbar session={session} />
-      <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '0 16px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: '80%', margin: '0 auto' }}>
         {children}
       </div>
     </>
@@ -118,7 +119,7 @@ export default function App() {
         <Route path="/login" element={session ? <Navigate to="/" replace /> : <WithNavbar session={session}><Login /></WithNavbar>} />
         <Route path="/register" element={session ? <Navigate to="/" replace /> : <WithNavbar session={session}><Register /></WithNavbar>} />
 
-        <Route path="/upload-photos" element={<ProtectedRoute session={session}><PhotoUpload /></ProtectedRoute>} />
+        <Route path="/upload-photos" element={<ProtectedRoute session={session}><WithNavbar session={session}><PhotoUpload /></WithNavbar></ProtectedRoute>} />
         <Route path="/preferences" element={<ProtectedRoute session={session}><WithNavbar session={session}><Preferences /></WithNavbar></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><SettingsPage /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
         <Route path="/" element={session ? <ProfileMustGuard session={session}><WithNavbar session={session}><Home /></WithNavbar></ProfileMustGuard> : <WithNavbar session={session}><Landing /></WithNavbar>} />

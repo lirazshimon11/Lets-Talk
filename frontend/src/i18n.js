@@ -37,7 +37,23 @@ const resources = {
             "lbl_pref_religion": "Preferred Religion",
             "btn_next_step": "Next Step",
             "btn_save_start": "Save & Start Finding Matches",
-            "btn_back": "Back"
+            "btn_back": "Back",
+            "nav_login": "Log In",
+            "nav_signup": "Sign Up",
+            "nav_theme_toggle": "Toggle Light/Dark Mode",
+            "profile_title": "My Profile",
+            "profile_subtitle": "Manage your identity & personality",
+            "profile_btn_edit": "Edit Profile",
+            "profile_btn_cancel": "Cancel",
+            "profile_btn_save": "Save All Changes",
+            "profile_sec_photos": "My Photos",
+            "profile_sec_identity": "Identity",
+            "profile_sec_physical": "Physical Details",
+            "profile_sec_preferences": "Personal Preferences & Quirks",
+            "profile_pref_subtitle": "Optional — but the more you answer, the better your matches!",
+            "profile_all_done": "All done!",
+            "profile_answered": "answered",
+            "profile_avatar_hint": "This represents you before photos are revealed."
         }
     },
     he: {
@@ -73,7 +89,23 @@ const resources = {
             "lbl_pref_religion": "דת מועדפת",
             "btn_next_step": "השלב הבא",
             "btn_save_start": "שמור והתחל לחפש התאמות",
-            "btn_back": "חזור"
+            "btn_back": "חזור",
+            "nav_login": "התחבר",
+            "nav_signup": "הרשמה",
+            "nav_theme_toggle": "החלף מצב אור/חושך",
+            "profile_title": "הפרופיל שלי",
+            "profile_subtitle": "נהל את הזהות והאישיות שלך",
+            "profile_btn_edit": "ערוך פרופיל",
+            "profile_btn_cancel": "ביטול",
+            "profile_btn_save": "שמור כל השינויים",
+            "profile_sec_photos": "התמונות שלי",
+            "profile_sec_identity": "זהות",
+            "profile_sec_physical": "פרטים פיזיים",
+            "profile_sec_preferences": "העדפות אישיות ומוזרויות",
+            "profile_pref_subtitle": "אופציונלי - אבל ככל שתענה יותר, כך ההתאמות שלך יהיו טובות יותר!",
+            "profile_all_done": "הכל מוכן!",
+            "profile_answered": "נענו",
+            "profile_avatar_hint": "זה מייצג אותך לפני שהתמונות נחשפות."
         }
     },
     fr: {
@@ -109,7 +141,23 @@ const resources = {
             "lbl_pref_religion": "Religion préférée",
             "btn_next_step": "Étape suivante",
             "btn_save_start": "Enregistrer et trouver des correspondances",
-            "btn_back": "Retour"
+            "btn_back": "Retour",
+            "nav_login": "Se connecter",
+            "nav_signup": "S'inscrire",
+            "nav_theme_toggle": "Basculer Jour/Nuit",
+            "profile_title": "Mon Profil",
+            "profile_subtitle": "Gérez votre identité et votre personnalité",
+            "profile_btn_edit": "Modifier le profil",
+            "profile_btn_cancel": "Annuler",
+            "profile_btn_save": "Enregistrer les modifications",
+            "profile_sec_photos": "Mes Photos",
+            "profile_sec_identity": "Identité",
+            "profile_sec_physical": "Détails physiques",
+            "profile_sec_preferences": "Préférences personnelles",
+            "profile_pref_subtitle": "Facultatif — mais plus vous répondez, meilleures seront vos correspondances !",
+            "profile_all_done": "Tout est terminé !",
+            "profile_answered": "répondu",
+            "profile_avatar_hint": "Ceci vous représente avant que les photos ne soient révélées."
         }
     },
     es: {
@@ -145,7 +193,23 @@ const resources = {
             "lbl_pref_religion": "Religión preferida",
             "btn_next_step": "Siguiente paso",
             "btn_save_start": "Guardar y buscar coincidencias",
-            "btn_back": "Volver"
+            "btn_back": "Volver",
+            "nav_login": "Iniciar sesión",
+            "nav_signup": "Registrarse",
+            "nav_theme_toggle": "Alternar modo Claro/Oscuro",
+            "profile_title": "Mi Perfil",
+            "profile_subtitle": "Gestiona tu identidad y personalidad",
+            "profile_btn_edit": "Editar perfil",
+            "profile_btn_cancel": "Cancelar",
+            "profile_btn_save": "Guardar cambios",
+            "profile_sec_photos": "Mis Fotos",
+            "profile_sec_identity": "Identidad",
+            "profile_sec_physical": "Detalles físicos",
+            "profile_sec_preferences": "Preferencias personales",
+            "profile_pref_subtitle": "Opcional — ¡pero cuantas más respondas, mejores serán tus coincidencias!",
+            "profile_all_done": "¡Todo listo!",
+            "profile_answered": "respondidas",
+            "profile_avatar_hint": "Esto te representa antes de que se revelen las fotos."
         }
     },
     pt: {
@@ -181,7 +245,23 @@ const resources = {
             "lbl_pref_religion": "Religião preferida",
             "btn_next_step": "Próximo passo",
             "btn_save_start": "Salvar e Buscar Matches",
-            "btn_back": "Voltar"
+            "btn_back": "Voltar",
+            "nav_login": "Entrar",
+            "nav_signup": "Criar Conta",
+            "nav_theme_toggle": "Alternar Tema Claro/Escuro",
+            "profile_title": "Meu Perfil",
+            "profile_subtitle": "Gerencie sua identidade e personalidade",
+            "profile_btn_edit": "Editar Perfil",
+            "profile_btn_cancel": "Cancelar",
+            "profile_btn_save": "Salvar Alterações",
+            "profile_sec_photos": "Minhas Fotos",
+            "profile_sec_identity": "Identidade",
+            "profile_sec_physical": "Detalhes Físicos",
+            "profile_sec_preferences": "Preferências Pessoais",
+            "profile_pref_subtitle": "Opcional — mas quanto mais você responder, melhores serão seus matches!",
+            "profile_all_done": "Tudo pronto!",
+            "profile_answered": "respondidas",
+            "profile_avatar_hint": "Isto representa você antes que as fotos sejam reveladas."
         }
     },
     hi: {
@@ -217,7 +297,23 @@ const resources = {
             "lbl_pref_religion": "पसंदीदा धर्म",
             "btn_next_step": "अगला कदम",
             "btn_save_start": "सहेजें और मैच खोजना शुरू करें",
-            "btn_back": "वापस"
+            "btn_back": "वापस",
+            "nav_login": "लॉग इन करें",
+            "nav_signup": "साइन अप करें",
+            "nav_theme_toggle": "लाइट/डार्क मोड टॉगल करें",
+            "profile_title": "मेरी प्रोफ़ाइल",
+            "profile_subtitle": "अपनी पहचान और व्यक्तित्व प्रबंधित करें",
+            "profile_btn_edit": "प्रोफ़ाइल संपादित करें",
+            "profile_btn_cancel": "रद्द करें",
+            "profile_btn_save": "परिवर्तन सहेजें",
+            "profile_sec_photos": "मेरी तस्वीरें",
+            "profile_sec_identity": "पहचान",
+            "profile_sec_physical": "शारीरिक विवरण",
+            "profile_sec_preferences": "व्यक्तिगत प्राथमिकताएँ",
+            "profile_pref_subtitle": "वैकल्पिक — लेकिन जितना अधिक आप उत्तर देंगे, आपके मैच उतने ही बेहतर होंगे!",
+            "profile_all_done": "सब हो गया!",
+            "profile_answered": "उत्तर दिए गए",
+            "profile_avatar_hint": "यह तस्वीरें सामने आने से पहले आपका प्रतिनिधित्व करता है।"
         }
     }
 };

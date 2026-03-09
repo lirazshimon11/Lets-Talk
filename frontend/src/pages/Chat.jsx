@@ -5,6 +5,7 @@ import { getCompatibility } from '../utils/compatibility';
 import EmojiPicker from 'emoji-picker-react';
 import FullscreenImage from '../components/FullscreenImage';
 import './Chat.css';
+import HeartLoader from '../components/HeartLoader';
 
 const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const firstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
@@ -34,6 +35,12 @@ export default function Chat() {
     const [showEndConfirm, setShowEndConfirm] = useState(false);
     const [endingMatch, setEndingMatch] = useState(false);
     const [matchEndedToast, setMatchEndedToast] = useState(false);
+    const prevMsgCountRef = useRef(null);
+    const [showRevealAnim, setShowRevealAnim] = useState(false);
+
+    // New Features State
+    const [replyTo, setReplyTo] = useState(null);
+    const [firstUnreadIndex, setFirstUnreadIndex] = useState(-1);
 
     // Date Invite State
     const [showDateModal, setShowDateModal] = useState(false);
@@ -138,7 +145,9 @@ export default function Chat() {
                     other_username: otherUser.my_name,
                     other_profile_image: otherUser.profile_image,
                     other_profile_images: otherUser.profile_images || [otherUser.profile_image].filter(Boolean),
-                    other_avatar: otherUser.my_avatar || 'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4'
+                    other_avatar: otherUser.my_avatar || 'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4',
+                    my_profile_image: isUser1 ? convData.user1.profile_image : convData.user2.profile_image,
+                    my_avatar: isUser1 ? convData.user1.my_avatar : convData.user2.my_avatar
                 };
 
                 // Fetch messages
@@ -149,6 +158,17 @@ export default function Chat() {
                     .order('created_at', { ascending: true });
 
                 if (msgError) throw msgError;
+
+                const storedKey = `lastRead_${session.user.id}_${id}`;
+                const lastReadCount = parseInt(localStorage.getItem(storedKey) || '0', 10);
+
+                if (msgData && msgData.length > lastReadCount) {
+                    setFirstUnreadIndex(lastReadCount);
+                }
+
+                if (msgData) {
+                    localStorage.setItem(storedKey, msgData.length.toString());
+                }
 
                 setConversation(formattedConv);
                 setMessages(msgData || []);
@@ -170,7 +190,13 @@ export default function Chat() {
                 .channel(`chat_${id}`)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `conversation_id=eq.${id}` }, payload => {
                     if (payload.eventType === 'INSERT') {
-                        setMessages(prev => [...prev, payload.new]);
+                        setMessages(prev => {
+                            const newArr = [...prev, payload.new];
+                            if (currentUser) {
+                                localStorage.setItem(`lastRead_${currentUser.id}_${id}`, newArr.length.toString());
+                            }
+                            return newArr;
+                        });
 
                         // Optimistic message count update
                         setConversation(prev => {
@@ -207,7 +233,22 @@ export default function Chat() {
                 supabase.removeChannel(channel);
             };
         }
-    }, [id, loading, threshold]);
+    }, [id, loading, threshold, currentUser?.id]);
+
+    useEffect(() => {
+        if (conversation) {
+            if (prevMsgCountRef.current !== null &&
+                prevMsgCountRef.current < threshold &&
+                conversation.message_count >= threshold) {
+                setShowRevealAnim(false);
+                setTimeout(() => {
+                    setShowRevealAnim(true);
+                    setTimeout(() => setShowRevealAnim(false), 6000);
+                }, 10);
+            }
+            prevMsgCountRef.current = conversation.message_count;
+        }
+    }, [conversation?.message_count, threshold]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -216,7 +257,14 @@ export default function Chat() {
     const handleSend = async (e) => {
         e.preventDefault();
         if (!text.trim()) return;
-        const msgText = text;
+
+        let msgText = text;
+        if (replyTo) {
+            const replyData = JSON.stringify({ id: replyTo.id, text: replyTo.text, sender: replyTo.sender_id === currentUser.id ? 'You' : conversation.other_username });
+            msgText = `[REPLY_START]${replyData}[REPLY_END]${text}`;
+            setReplyTo(null);
+        }
+
         setText('');
 
         await supabase.from('messages').insert({
@@ -360,7 +408,7 @@ export default function Chat() {
         }
     };
 
-    if (loading) return <div>Loading chat...</div>;
+    if (loading) return <HeartLoader />;
 
     const isRevealed = conversation.status === 'revealed';
     const displayImage = isRevealed ? (conversation.other_profile_image || 'https://via.placeholder.com/150') : null;
@@ -528,11 +576,34 @@ export default function Chat() {
     };
 
     return (
-        <>
+        <div className="chat-page-wrapper">
             <div className={`chat-container theme-${theme}${chatBg !== 'none' ? ` chat-bg-${chatBg}` : ''}`}>
+                {showRevealAnim && (
+                    <div className="reveal-animation-overlay">
+                        <div className="reveal-content">
+                            <div className="reveal-avatars">
+                                <div className="reveal-person mine">
+                                    <div className="reveal-img-wrapper">
+                                        <img src={conversation.my_avatar} className="reveal-avatar-img" alt="avatar" />
+                                        <img src={conversation.my_profile_image} className="reveal-real-img" alt="profile" />
+                                    </div>
+                                    <div className="reveal-name">You</div>
+                                </div>
+                                <div className="reveal-heart-center">🤍</div>
+                                <div className="reveal-person theirs">
+                                    <div className="reveal-img-wrapper">
+                                        <img src={conversation.other_avatar} className="reveal-avatar-img" alt="avatar" />
+                                        <img src={conversation.other_profile_image} className="reveal-real-img" alt="profile" />
+                                    </div>
+                                    <div className="reveal-name">{conversation.other_username}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 <header className="chat-header">
                     <div className="header-left">
-                        <button onClick={(e) => { e.stopPropagation(); navigate('/'); }} className="btn-back">
+                        <button onClick={(e) => { e.stopPropagation(); navigate('/chats'); }} className="btn-back">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
                             Back
                         </button>
@@ -556,19 +627,19 @@ export default function Chat() {
                     </div>
                 </header>
 
-                <div className="chat-reveal-banner">
-                    {isRevealed ? (
-                        <span className="revealed-text">🎉 Profiles have been revealed! 🎉</span>
-                    ) : (
+                {!isRevealed && (
+                    <div className="chat-reveal-banner">
                         <span className="mystery-text">Mystery Active: {conversation.message_count}/{threshold} messages until reveal</span>
-                    )}
-                </div>
+                    </div>
+                )}
 
                 <div className="messages-container">
                     {messages.map((msg, idx) => {
                         const isMine = msg.sender_id === currentUser.id;
 
                         let bubbleContent = <div className="message-bubble">{msg.text}</div>;
+                        let textForCopy = msg.text;
+
                         if (msg.text.startsWith('[DATE_INVITE]')) {
                             try {
                                 const data = JSON.parse(msg.text.replace('[DATE_INVITE]', ''));
@@ -639,11 +710,53 @@ export default function Chat() {
                             } catch (e) {
                                 bubbleContent = <div className="message-bubble">Sent a status update (Error loading)</div>;
                             }
+                        } else if (msg.text.startsWith('[REPLY_START]')) {
+                            const endIdx = msg.text.indexOf('[REPLY_END]');
+                            if (endIdx !== -1) {
+                                try {
+                                    const replyData = JSON.parse(msg.text.substring(13, endIdx));
+                                    const actualText = msg.text.substring(endIdx + 11);
+                                    textForCopy = actualText;
+                                    bubbleContent = (
+                                        <div className="message-bubble">
+                                            <div className="reply-preview-bubble">
+                                                <div className="reply-sender">{replyData.sender}</div>
+                                                <div className="reply-text">{replyData.text.replace(/\[REPLY_START\].*?\[REPLY_END\]/, '')}</div>
+                                            </div>
+                                            {actualText}
+                                        </div>
+                                    );
+                                } catch (e) {
+                                    bubbleContent = <div className="message-bubble">{msg.text}</div>;
+                                }
+                            }
                         }
 
+                        const unreadDivider = idx === firstUnreadIndex ? (
+                            <div className="unread-divider">
+                                <span>{messages.length - firstUnreadIndex} new messages</span>
+                            </div>
+                        ) : null;
+
+                        const actionButtons = (
+                            <div className={`message-actions ${isMine ? 'right' : 'left'}`}>
+                                <button className="msg-action-btn" onClick={() => setReplyTo(msg)} title="Reply">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></svg>
+                                </button>
+                                <button className="msg-action-btn" onClick={() => navigator.clipboard.writeText(textForCopy)} title="Copy">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                </button>
+                            </div>
+                        );
+
                         return (
-                            <div key={idx} className={`message-wrapper ${isMine ? 'mine' : 'theirs'}`}>
-                                {bubbleContent}
+                            <div key={idx} style={{ display: 'contents' }}>
+                                {unreadDivider}
+                                <div className={`message-wrapper ${isMine ? 'mine' : 'theirs'}`}>
+                                    {!isMine && actionButtons}
+                                    {bubbleContent}
+                                    {isMine && actionButtons}
+                                </div>
                             </div>
                         );
                     })}
@@ -651,6 +764,20 @@ export default function Chat() {
                 </div>
 
                 <div className="chat-input-wrapper" style={{ padding: '0 20px 20px', position: 'relative' }}>
+
+                    {/* Replying To Banner */}
+                    {replyTo && (
+                        <div className="replying-banner">
+                            <div className="replying-banner-content">
+                                <span className="replying-label">Replying to {replyTo.sender_id === currentUser.id ? 'yourself' : conversation.other_username}</span>
+                                <div className="replying-text">{replyTo.text.replace(/\[.*?\](\{.*?\})?(\[.*?\])?/g, '')}</div>
+                            </div>
+                            <button className="replying-cancel" onClick={() => setReplyTo(null)}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                    )}
+
                     {/* Emoji picker popup */}
                     {showEmojiPicker && (
                         <div ref={emojiPickerRef} style={{
@@ -1128,6 +1255,6 @@ export default function Chat() {
                     </div>
                 </div>
             )}
-        </>
+        </div>
     );
 }

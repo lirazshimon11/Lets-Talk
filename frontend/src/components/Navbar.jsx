@@ -73,12 +73,12 @@ export default function Navbar({ session }) {
                                 {t('nav_chats')}
                             </Link>
                             <Link to="/settings" className={`nav-link ${isSettings ? 'active' : ''}`}>
-                                Settings
+                                {t('nav_settings')}
                             </Link>
-                            <button onClick={toggleTheme} className="btn-theme-toggle" title="Toggle Light/Dark Mode">
+                            <button onClick={toggleTheme} className="btn-theme-toggle" title={t('nav_theme_toggle', 'Toggle Light/Dark Mode')}>
                                 {theme === 'light' ? '🌙' : '☀️'}
                             </button>
-                            <div className="navbar-profile" onClick={() => navigate('/settings')}>
+                            <div className="navbar-profile" onClick={() => navigate('/profile')}>
                                 <div className="navbar-avatar"
                                     style={{ cursor: 'pointer' }}
                                     onClick={(e) => {
@@ -95,17 +95,17 @@ export default function Navbar({ session }) {
                                 </div>
                                 <span className="navbar-username">{userProfile.my_name || session?.user?.email?.split('@')[0]}</span>
                             </div>
-                            <button onClick={handleLogout} className="btn-logout" title="Logout">
+                            <button onClick={handleLogout} className="btn-logout" title={t('nav_logout')}>
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
                             </button>
                         </>
                     ) : (
                         <>
-                            <button onClick={toggleTheme} className="btn-theme-toggle" title="Toggle Light/Dark Mode">
+                            <button onClick={toggleTheme} className="btn-theme-toggle" title={t('nav_theme_toggle', 'Toggle Light/Dark Mode')}>
                                 {theme === 'light' ? '🌙' : '☀️'}
                             </button>
-                            <Link to="/login" className="btn-login-nav">Log In</Link>
-                            <Link to="/register" className="btn-signup-nav">Sign Up</Link>
+                            <Link to="/login" className="btn-login-nav">{t('nav_login', 'Log In')}</Link>
+                            <Link to="/register" className="btn-signup-nav">{t('nav_signup', 'Sign Up')}</Link>
                         </>
                     )}
                 </div>

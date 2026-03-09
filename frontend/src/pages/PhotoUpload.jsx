@@ -125,45 +125,48 @@ export default function PhotoUpload() {
         const photo = photos[index];
         const isNextAvailable = index === 0 || index === photos.length;
         const isDisabled = !photo && photos.length < index;
+        const slotClass = isMain ? 'photo-slot-main' : 'photo-slot-small';
 
         if (photo) {
             return (
-                <div key={index} className={`photo-slot ${isMain ? 'photo-slot-main' : 'photo-slot-small'} slot-filled`}
-                    onClick={() => setSelectedImg(photo.previewUrl)}
-                    style={{ cursor: 'pointer' }}>
-                    <img src={photo.previewUrl} alt={`Photo ${index + 1}`} className="slot-img" />
-                    {index === 0 && <span className="photo-main-badge">Main</span>}
-                    {!uploading && (
-                        <div className="slot-controls">
-                            {index > 0 && (
-                                <button className="slot-btn" onClick={(e) => moveLeft(e, index)} title="Move left">
-                                    <ChevronLeft size={14} />
+                <div key={index} className={slotClass}>
+                    <div className="slot-filled" onClick={() => setSelectedImg(photo.previewUrl)} style={{ cursor: 'pointer' }}>
+                        <img src={photo.previewUrl} alt={`Photo ${index + 1}`} className="slot-img" />
+                        {index === 0 && <span className="photo-main-badge">Main</span>}
+                        {!uploading && (
+                            <div className="slot-controls">
+                                {index > 0 && (
+                                    <button className="slot-btn" onClick={(e) => moveLeft(e, index)} title="Move left">
+                                        <ChevronLeft size={14} />
+                                    </button>
+                                )}
+                                <button className="slot-btn slot-btn-remove" onClick={(e) => removePhoto(e, index)} title="Remove">
+                                    <X size={14} />
                                 </button>
-                            )}
-                            <button className="slot-btn slot-btn-remove" onClick={(e) => removePhoto(e, index)} title="Remove">
-                                <X size={14} />
-                            </button>
-                            {index < photos.length - 1 && (
-                                <button className="slot-btn" onClick={(e) => moveRight(e, index)} title="Move right">
-                                    <ChevronRight size={14} />
-                                </button>
-                            )}
-                        </div>
-                    )}
+                                {index < photos.length - 1 && (
+                                    <button className="slot-btn" onClick={(e) => moveRight(e, index)} title="Move right">
+                                        <ChevronRight size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             );
         }
 
         return (
-            <div key={index}
-                className={`photo-slot ${isMain ? 'photo-slot-main' : 'photo-slot-small'} slot-empty ${isDisabled ? 'slot-disabled' : ''} ${isNextAvailable ? 'slot-next' : ''}`}
-                onClick={isNextAvailable && !isDisabled && !uploading ? (e) => triggerUpload(e, index) : undefined}
-            >
-                {isNextAvailable && !isDisabled ? (
-                    <Plus size={isMain ? 40 : 24} color="var(--text-muted)" strokeWidth={1.5} />
-                ) : (
-                    <div className="slot-dot" />
-                )}
+            <div key={index} className={slotClass}>
+                <div
+                    className={`slot-empty ${isDisabled ? 'slot-disabled' : ''} ${isNextAvailable ? 'slot-next' : ''}`}
+                    onClick={isNextAvailable && !isDisabled && !uploading ? (e) => triggerUpload(e, index) : undefined}
+                >
+                    {isNextAvailable && !isDisabled ? (
+                        <Plus size={isMain ? 40 : 24} color="var(--text-muted)" strokeWidth={1.5} />
+                    ) : (
+                        <div className="slot-dot" />
+                    )}
+                </div>
             </div>
         );
     };
@@ -172,10 +175,12 @@ export default function PhotoUpload() {
         <>
             <div className="photo-upload-container">
                 <div className="photo-upload-box">
-                    <h2 className="brand-title photo-upload-title">Your Photos</h2>
-                    <p className="photo-upload-subtitle">
-                        Add at least 1 photo. The first photo will be your main profile picture.
-                    </p>
+                    <div className="photo-upload-header">
+                        <h2 className="brand-title photo-upload-title">Your Photos</h2>
+                        <p className="photo-upload-subtitle">
+                            Add up to {MAX_PHOTOS} photos. The first one becomes your main profile picture.
+                        </p>
+                    </div>
 
                     {error && <p className="photo-upload-error">{error}</p>}
 
@@ -186,35 +191,38 @@ export default function PhotoUpload() {
                         </div>
                     </div>
 
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        onChange={handleFileChange}
-                    />
+                    <input type="file" ref={fileInputRef} accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
 
-                    <div className="photo-upload-counter">
-                        {photos.length} / {MAX_PHOTOS} photos selected
-                    </div>
-
-                    {uploading && (
-                        <div className="upload-progress-bar-wrap">
-                            <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
-                            <span className="upload-progress-label">Uploading {uploadProgress}%</span>
+                    <div className="photo-upload-footer">
+                        <div className="photo-upload-counter">
+                            <span>{photos.length} / {MAX_PHOTOS} photos</span>
+                            <div className="photo-counter-dots">
+                                {Array.from({ length: MAX_PHOTOS }).map((_, i) => (
+                                    <div key={i} className={`photo-counter-dot ${i < photos.length ? 'filled' : ''}`} />
+                                ))}
+                            </div>
                         </div>
-                    )}
 
-                    <button
-                        className="btn-primary photo-upload-btn"
-                        onClick={handleContinue}
-                        disabled={photos.length === 0 || uploading}
-                    >
-                        {uploading ? `Uploading ${uploadProgress}%...` : photos.length === 0 ? 'Add at least 1 photo' : `Continue with ${photos.length} photo${photos.length > 1 ? 's' : ''} →`}
-                    </button>
+                        {uploading && (
+                            <div className="upload-progress-bar-wrap">
+                                <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
+                            </div>
+                        )}
+
+                        <button
+                            className="btn-primary photo-upload-btn"
+                            onClick={handleContinue}
+                            disabled={photos.length === 0 || uploading}
+                        >
+                            {uploading
+                                ? `Uploading ${uploadProgress}%…`
+                                : photos.length === 0
+                                    ? '📸 Add at least 1 photo to continue'
+                                    : `Continue with ${photos.length} photo${photos.length > 1 ? 's' : ''} →`}
+                        </button>
+                    </div>
                 </div>
             </div>
-            {/* Fullscreen Image Overlay */}
             <FullscreenImage src={selectedImg} onClose={() => setSelectedImg(null)} />
         </>
     );

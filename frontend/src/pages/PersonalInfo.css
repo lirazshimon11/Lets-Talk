@@ -1,4 +1,72 @@
-/* ── Profile Card ── */
+/* ── Profile Page Wide Layout ── */
+.profile-page-wrap {
+    width: 100%;
+    margin: 28px 0 60px;
+    padding: 0;
+}
+
+.profile-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 28px;
+}
+
+.profile-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+@media (max-width: 780px) {
+    .profile-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.profile-left-col,
+.profile-right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.profile-section-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 26px 30px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+    transition: box-shadow 0.2s;
+}
+
+.profile-section-card:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.profile-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    font-weight: 800;
+    margin-bottom: 18px;
+    color: var(--text-main);
+}
+
+.profile-section-title span {
+    font-size: 1.1rem;
+}
+
+.profile-section-hint {
+    margin-left: 6px;
+    font-size: 0.73rem;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+/* Legacy card – kept for any backward compat */
 .profile-card {
     background: var(--card-bg);
     border-radius: 24px;
@@ -312,4 +380,159 @@
     height: 1px;
     background: var(--border-color);
     margin: 4px 6px;
+}
+
+/* ── Questionnaire Section ── */
+.questionnaire-section {
+    margin-top: 35px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 20px;
+}
+
+.questionnaire-header h3 {
+    margin: 0 0 5px 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.questionnaire-header p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0 0 20px 0;
+}
+
+.questionnaire-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.q-cat {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.q-cat.expanded {
+    border-color: #ec4899;
+    box-shadow: 0 4px 15px rgba(236, 72, 153, 0.15);
+}
+
+.q-cat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.q-cat-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.q-cat-header h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.q-cat-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cat-badge {
+    font-size: 0.75rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.cat-badge.done {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.cat-chevron {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.q-cat-content {
+    background: var(--input-bg);
+    padding: 12px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: slideDown 0.2s ease-out;
+}
+
+.q-row {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s;
+}
+
+.q-row:has(.q-opt-btn.active) {
+    border-color: rgba(236, 72, 153, 0.4);
+}
+
+.q-options {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.q-or-divider {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    opacity: 0.5;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    padding: 0 2px;
+}
+
+.q-opt-btn {
+    flex: 1;
+    background: var(--input-bg);
+    border: 1.5px solid var(--border-color);
+    color: var(--text-main);
+    padding: 9px 10px;
+    border-radius: 9px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s;
+    line-height: 1.3;
+    text-align: center;
+}
+
+.q-opt-btn:hover {
+    border-color: #ec4899;
+    background: rgba(236, 72, 153, 0.06);
+    transform: translateY(-1px);
+}
+
+.q-opt-btn.active {
+    background: var(--accent-gradient);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 3px 10px var(--accent-shadow);
 }

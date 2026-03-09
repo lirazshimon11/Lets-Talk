@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { getCompatibility } from '../utils/compatibility';
 import FullscreenImage from '../components/FullscreenImage';
 import './Chats.css';
+import HeartLoader from '../components/HeartLoader';
 
 export default function Chats() {
     const [conversations, setConversations] = useState([]);
@@ -38,11 +39,16 @@ export default function Chats() {
                 const mapped = data.map(conv => {
                     const isUser1 = conv.user1_id === userId;
                     const otherUser = isUser1 ? conv.user2 : conv.user1;
+                    const storedKey = `lastRead_${userId}_${conv.id}`;
+                    const lastReadCount = parseInt(localStorage.getItem(storedKey) || '0', 10);
+                    const unreadCount = Math.max(0, conv.message_count - lastReadCount);
+
                     return {
                         id: conv.id,
                         status: conv.status,
                         theme: conv.theme,
                         message_count: conv.message_count,
+                        unread_count: unreadCount,
                         other_username: otherUser.my_name,
                         other_profile_image: otherUser.profile_image,
                         other_avatar: otherUser.my_avatar || 'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4'
@@ -73,7 +79,7 @@ export default function Chats() {
         }
     };
 
-    if (loading) return <div style={{ textAlign: 'center', padding: '20px' }}>Loading chats...</div>;
+    if (loading) return <HeartLoader />;
 
     return (
         <>
@@ -104,9 +110,14 @@ export default function Chats() {
                                             <img src={conv.other_avatar} alt="avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                                         )}
                                     </div>
-                                    <div className="chat-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div>
-                                            <h4>{conv.other_username}</h4>
+                                    <div className="chat-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flex: 1 }}>
+                                        <div style={{ position: 'relative' }}>
+                                            <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                {conv.other_username}
+                                                {conv.unread_count > 0 && (
+                                                    <span className="unread-badge">{conv.unread_count} new</span>
+                                                )}
+                                            </h4>
                                             <p>{conv.status === 'revealed' ? 'Profiles revealed!' : 'Mystery chat active'}</p>
                                         </div>
                                         <button className="btn-why-match" onClick={(e) => handleShowCompatibility(e, conv.id)}>Why?</button>

@@ -16,6 +16,7 @@ create table public.profiles (
   my_ethnicity text default 'Caucasian',
   my_religion text default 'Other',
   profile_image text,
+  questionnaire_answers jsonb default '{}'::jsonb,
   
   -- Match Preferences
   match_gender text default 'Any',

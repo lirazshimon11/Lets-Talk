@@ -3,6 +3,141 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import CustomSelect from '../components/CustomSelect';
+import './PersonalInfo.css';
+import HeartLoader from '../components/HeartLoader';
+
+const QUESTIONNAIRE = [
+    {
+        categoryId: 'food',
+        title: "🥗 Food & Drink",
+        questions: [
+            { id: 'f1', options: ["Coffee date", "Cocktail date"] },
+            { id: 'f2', options: ["Pizza with pineapple: Yes", "No way"] },
+            { id: 'f3', options: ["Cooking a meal together", "Ordering takeout"] },
+            { id: 'f4', options: ["Sweet breakfast", "Savory breakfast"] },
+            { id: 'f5', options: ["Wine and cheese", "Beer and wings"] },
+            { id: 'f6', options: ["Street food", "Fine dining"] },
+            { id: 'f7', options: ["Ice cream in the winter", "Hot cocoa in the summer"] },
+            { id: 'f8', options: ["Sharing your fries", "Hands off my plate"] },
+            { id: 'f9', options: ["Tequila shots", "A slow-sipped whiskey"] },
+            { id: 'f10', options: ["A home-cooked meal", "A hidden gem restaurant"] },
+            { id: 'f11', options: ["Breakfast for dinner", "Dinner for breakfast"] },
+            { id: 'f12', options: ["Fancy brunch", "A greasy spoon diner"] },
+            { id: 'f13', options: ["Iced coffee all year round", "Hot coffee only"] },
+            { id: 'f14', options: ["Spicy food", "Mild flavors"] },
+            { id: 'f15', options: ["Dark chocolate", "Milk chocolate"] },
+            { id: 'f16', options: ["Cooking for someone", "Having someone cook for you"] },
+            { id: 'f17', options: ["Buffet style", "A set menu"] },
+            { id: 'f18', options: ["Matcha latte", "Classic Earl Grey"] },
+            { id: 'f19', options: ["Farmers' market", "A big supermarket"] },
+            { id: 'f20', options: ["Popcorn at the movies", "Sweet or Salty"] }
+        ]
+    },
+    {
+        categoryId: 'travel',
+        title: "✈️ Travel & Adventure",
+        questions: [
+            { id: 't1', options: ["Beach vacation", "Mountain getaway"] },
+            { id: 't2', options: ["Spontaneous road trip", "A detailed itinerary"] },
+            { id: 't3', options: ["Boutique hotel", "Camping under the stars"] },
+            { id: 't4', options: ["Exploring a new city", "Relaxing by the pool"] },
+            { id: 't5', options: ["Window seat", "Aisle seat"] },
+            { id: 't6', options: ["Backpacking through Europe", "Luxury in the Maldives"] },
+            { id: 't7', options: ["Visiting a museum", "Going on a hike"] },
+            { id: 't8', options: ["Theme park", "Botanical garden"] },
+            { id: 't9', options: ["Living in a tiny house", "A big mansion"] },
+            { id: 't10', options: ["Suitcase", "Backpack"] },
+            { id: 't11', options: ["Tropical heat", "Snowy cold"] },
+            { id: 't12', options: ["Tourist hotspots", "\"Locals only\" spots"] },
+            { id: 't13', options: ["Road trip playlist", "An interesting podcast"] },
+            { id: 't14', options: ["Sunrise hike", "Sunset dinner"] },
+            { id: 't15', options: ["Scuba diving", "Skydiving"] },
+            { id: 't16', options: ["Local markets", "Shopping malls"] },
+            { id: 't17', options: ["Learning the language", "Using Google Translate"] },
+            { id: 't18', options: ["One week in 5 cities", "One week in 1 city"] },
+            { id: 't19', options: ["Cruise ship", "Private sailboat"] },
+            { id: 't20', options: ["Solo travel", "Group trips"] }
+        ]
+    },
+    {
+        categoryId: 'lifestyle',
+        title: "🏠 Lifestyle & Personality",
+        questions: [
+            { id: 'l1', options: ["Early bird", "Night owl"] },
+            { id: 'l2', options: ["Big party", "Intimate gathering"] },
+            { id: 'l3', options: ["Staying in", "Going out"] },
+            { id: 'l4', options: ["City life", "Country living"] },
+            { id: 'l5', options: ["Dog person", "Cat person"] },
+            { id: 'l6', options: ["Planning everything", "Going with the flow"] },
+            { id: 'l7', options: ["Physical books", "Kindle/E-books"] },
+            { id: 'l8', options: ["Working from home", "In a busy office"] },
+            { id: 'l9', options: ["Messy desk", "Minimalist workspace"] },
+            { id: 'l10', options: ["Podcast", "Music"] },
+            { id: 'l11', options: ["Deep talk", "Constant jokes"] },
+            { id: 'l12', options: ["Phone call", "Voice note"] },
+            { id: 'l13', options: ["Texting", "FaceTime"] },
+            { id: 'l14', options: ["Shower in the morning", "At night"] },
+            { id: 'l15', options: ["Saving money", "\"Treat yourself\""] },
+            { id: 'l16', options: ["Introverted extrovert", "Extroverted introvert"] },
+            { id: 'l17', options: ["Classic style", "Trendy fashion"] },
+            { id: 'l18', options: ["Fixed schedule", "\"See what happens\""] },
+            { id: 'l19', options: ["Action movies", "Romantic comedies"] },
+            { id: 'l20', options: ["True crime documentaries", "Cartoons"] }
+        ]
+    },
+    {
+        categoryId: 'entertainment',
+        title: "🎭 Entertainment & Fun",
+        questions: [
+            { id: 'e1', options: ["Netflix binge", "Cinema experience"] },
+            { id: 'e2', options: ["Live concert", "Broadway show"] },
+            { id: 'e3', options: ["Board games", "Video games"] },
+            { id: 'e4', options: ["Dancing in a club", "Singing in a karaoke bar"] },
+            { id: 'e5', options: ["Bowling", "Mini-golf"] },
+            { id: 'e6', options: ["Reading a book", "Watching a movie"] },
+            { id: 'e7', options: ["Reality TV", "Prestige drama"] },
+            { id: 'e8', options: ["Museum date", "Zoo date"] },
+            { id: 'e9', options: ["Arcade games", "Escape rooms"] },
+            { id: 'e10', options: ["Watching sports", "Playing sports"] },
+            { id: 'e11', options: ["80s music", "2020s hits"] },
+            { id: 'e12', options: ["Acoustic sets", "Heavy metal"] },
+            { id: 'e13', options: ["Stand-up comedy", "A magic show"] },
+            { id: 'e14', options: ["Instagram", "TikTok"] },
+            { id: 'e15', options: ["Photography", "Being in the photo"] },
+            { id: 'e16', options: ["Thrillers", "Fantasy novels"] },
+            { id: 'e17', options: ["Vinyl records", "Spotify"] },
+            { id: 'e18', options: ["Painting", "Pottery"] },
+            { id: 'e19', options: ["Playing an instrument", "Singing"] },
+            { id: 'e20', options: ["Puzzles", "Crosswords"] }
+        ]
+    },
+    {
+        categoryId: 'deep',
+        title: "💡 Deep & Quirky",
+        questions: [
+            { id: 'd1', options: ["Ability to fly", "Ability to be invisible"] },
+            { id: 'd2', options: ["Knowing the future", "Changing the past"] },
+            { id: 'd3', options: ["Space exploration", "Deep sea diving"] },
+            { id: 'd4', options: ["Always being 10 minutes late", "20 minutes early"] },
+            { id: 'd5', options: ["Logic", "Emotion"] },
+            { id: 'd6', options: ["Fame", "Fortune"] },
+            { id: 'd7', options: ["Living without the internet", "Living without air conditioning"] },
+            { id: 'd8', options: ["Intelligence", "Sense of humor"] },
+            { id: 'd9', options: ["Honest truth", "A white lie to save feelings"] },
+            { id: 'd10', options: ["Modern art", "Classical art"] },
+            { id: 'd11', options: ["Scientific facts", "Gut feelings"] },
+            { id: 'd12', options: ["Living forever", "Living a short, exciting life"] },
+            { id: 'd13', options: ["New clothes", "Vintage finds"] },
+            { id: 'd14', options: ["Being the driver", "Being the passenger"] },
+            { id: 'd15', options: ["Rain", "Sunshine"] },
+            { id: 'd16', options: ["Simple life", "High-achiever life"] },
+            { id: 'd17', options: ["Asking for permission", "Asking for forgiveness"] },
+            { id: 'd18', options: ["Big wedding", "Eloping"] },
+            { id: 'd19', options: ["Remembering everything", "Being able to forget"] },
+            { id: 'd20', options: ["Finding true love", "Finding 10 million dollars"] }
+        ]
+    }
+];
 
 const PREF_HAIR_OPTIONS = ['Blonde', 'Brunette', 'Black', 'Red', 'Gray', 'White', 'Bald', 'Dyed/Vibrant', 'Other', 'Any'];
 const HAIR_OPTIONS = ['Blonde', 'Brunette', 'Black', 'Red', 'Gray', 'White', 'Bald', 'Dyed/Vibrant', 'Other', 'Any'];
@@ -36,6 +171,7 @@ const AVATAR_OPTIONS = [
 export default function Preferences() {
     const { t, i18n } = useTranslation();
     const [step, setStep] = useState(1);
+    const [expandedCategory, setExpandedCategory] = useState(null);
 
     const [details, setDetails] = useState({
         my_name: '',
@@ -50,6 +186,7 @@ export default function Preferences() {
         my_ethnicity: 'Caucasian',
         my_religion: 'Other',
         my_avatar: AVATAR_OPTIONS[0],
+        questionnaire_answers: {},
     });
 
     const [preferences, setPreferences] = useState({
@@ -103,6 +240,7 @@ export default function Preferences() {
                         my_ethnicity: data.my_ethnicity || 'Caucasian',
                         my_religion: data.my_religion || 'Other',
                         my_avatar: data.my_avatar || AVATAR_OPTIONS[0],
+                        questionnaire_answers: data.questionnaire_answers || {},
                     });
                     setPreferences({
                         match_gender: data.match_gender || 'Female',
@@ -135,6 +273,10 @@ export default function Preferences() {
             setStep(2);
             return;
         }
+        if (step === 2) {
+            setStep(3);
+            return;
+        }
 
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -157,7 +299,7 @@ export default function Preferences() {
         }
     };
 
-    if (loading) return <div className="auth-container"><div className="brand-title">{t('loading')}</div></div>;
+    if (loading) return <HeartLoader />;
 
     const renderImportance = (field) => (
         <div style={{ marginTop: '12px' }}>
@@ -180,7 +322,7 @@ export default function Preferences() {
             <div className="auth-container">
                 <div className="auth-box" style={{ maxWidth: '450px' }}>
                     <h2 className="brand-title" style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>
-                        {step === 1 ? t('step_1') : t('step_2')}
+                        {step === 1 ? t('step_1') : step === 2 ? 'Personal Preferences' : t('step_2')}
                     </h2>
 
                     <form onSubmit={handleSubmit}>
@@ -262,6 +404,60 @@ export default function Preferences() {
                         )}
 
                         {step === 2 && (
+                            <div className="form-grid">
+                                <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '14px', width: '100%', textAlign: 'left' }}>These questions are optional, but answering them drastically improves your match quality!</p>
+                                <div className="questionnaire-accordion" style={{ textAlign: 'left', marginBottom: '20px' }}>
+                                    {QUESTIONNAIRE.map((cat, i) => {
+                                        const isExpanded = expandedCategory === cat.categoryId;
+                                        const unanswered = cat.questions.filter(q => !details.questionnaire_answers?.[q.id]).length;
+
+                                        return (
+                                            <div key={i} className={`q-cat ${isExpanded ? 'expanded' : ''}`}>
+                                                <div className="q-cat-header" onClick={() => setExpandedCategory(isExpanded ? null : cat.categoryId)} style={{ cursor: 'pointer' }}>
+                                                    <h4>{cat.title}</h4>
+                                                    <div className="q-cat-meta">
+                                                        {unanswered === 0 ? <span className="cat-badge done">All done!</span> : <span className="cat-badge">{cat.questions.length - unanswered}/{cat.questions.length} answered</span>}
+                                                        <span className="cat-chevron">{isExpanded ? '▲' : '▼'}</span>
+                                                    </div>
+                                                </div>
+                                                {isExpanded && (
+                                                    <div className="q-cat-content">
+                                                        {cat.questions.map((q, j) => {
+                                                            const selectedOpt = details.questionnaire_answers?.[q.id];
+                                                            return (
+                                                                <div key={j} className="q-row">
+                                                                    <div className="q-options">
+                                                                        {q.options.map((opt, optIndex) => (
+                                                                            <span key={optIndex} style={{ display: 'contents' }}>
+                                                                                {optIndex > 0 && <span className="q-or-divider">or</span>}
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className={`q-opt-btn ${selectedOpt === opt ? 'active' : ''}`}
+                                                                                    onClick={() => {
+                                                                                        const nextAnswers = { ...details.questionnaire_answers };
+                                                                                        if (nextAnswers[q.id] === opt) delete nextAnswers[q.id];
+                                                                                        else nextAnswers[q.id] = opt;
+                                                                                        setDetails({ ...details, questionnaire_answers: nextAnswers });
+                                                                                    }}
+                                                                                >
+                                                                                    {opt}
+                                                                                </button>
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 3 && (
                             <div className="form-grid">
                                 <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '14px', width: '100%', textAlign: 'left' }}>{t('lbl_looking_for')}</p>
 
@@ -366,11 +562,11 @@ export default function Preferences() {
                         )}
 
                         <button type="submit" className="btn-primary">
-                            {step === 1 ? t('btn_next_step') : t('btn_save_start')}
+                            {step === 1 || step === 2 ? t('btn_next_step') : t('btn_save_start')}
                         </button>
 
-                        {step === 2 && (
-                            <button type="button" onClick={() => setStep(1)} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', marginTop: '15px' }}>
+                        {(step === 2 || step === 3) && (
+                            <button type="button" onClick={() => setStep(step - 1)} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', marginTop: '15px' }}>
                                 {t('btn_back')}
                             </button>
                         )}

@@ -1,10 +1,22 @@
+.chat-page-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100vw;
+    padding: 20px 0;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
 .chat-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 80px);
-    /* Account for navbar space */
+    height: 86vh;
+    width: 95vw;
+    box-sizing: border-box;
     max-width: 800px;
-    margin: 10px auto;
+    position: relative;
     background: var(--card-bg);
     color: var(--text-main);
     backdrop-filter: var(--backdrop-filter);
@@ -14,8 +26,179 @@
     box-shadow: var(--card-shadow);
     transition: background 0.5s ease, color 0.5s ease;
     overflow: hidden;
-    position: relative;
     animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Reveal Animation Overlay */
+.reveal-animation-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 24px;
+    animation: revealOverlayFade 6s ease forwards;
+    pointer-events: none;
+}
+
+.reveal-content {
+    text-align: center;
+}
+
+.reveal-avatars {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.reveal-person {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    opacity: 0;
+}
+
+.reveal-person.mine {
+    animation: slideRightFade 0.6s ease forwards 0.8s;
+}
+
+.reveal-person.theirs {
+    animation: slideLeftFade 0.6s ease forwards 0.8s;
+}
+
+.reveal-img-wrapper {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    margin: 0 auto;
+    perspective: 1000px;
+    transform-style: preserve-3d;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    animation: flipAvatar 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards 2.5s;
+}
+
+.reveal-avatar-img,
+.reveal-real-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border: 4px solid var(--accent);
+}
+
+.reveal-real-img {
+    transform: rotateY(180deg);
+}
+
+.reveal-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: white;
+}
+
+.reveal-heart-center {
+    font-size: 3rem;
+    opacity: 0;
+    animation: heartbeatZoom 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards 1.2s,
+        pulseHeart 1s ease-in-out infinite 2s;
+}
+
+@keyframes revealOverlayFade {
+    0% {
+        opacity: 0;
+        backdrop-filter: blur(0px);
+    }
+
+    5% {
+        opacity: 1;
+        backdrop-filter: blur(10px);
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes slideRightFade {
+    0% {
+        transform: translateX(-50px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideLeftFade {
+    0% {
+        transform: translateX(50px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes heartbeatZoom {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    50% {
+        transform: scale(1.4);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes pulseHeart {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.2);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes flipAvatar {
+    0% {
+        transform: rotateY(0deg);
+    }
+
+    100% {
+        transform: rotateY(180deg);
+        box-shadow: 0 10px 40px var(--accent-shadow);
+    }
 }
 
 /* Themes */
@@ -274,6 +457,152 @@
 
 .chat-send-btn:active {
     transform: scale(0.95);
+}
+
+/* ── New Message Actions ── */
+.message-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.message-wrapper:hover .message-actions {
+    opacity: 1;
+}
+
+.message-actions.left {
+    margin-right: 12px;
+}
+
+.message-actions.right {
+    margin-left: 12px;
+}
+
+.msg-action-btn {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.msg-action-btn:hover {
+    color: var(--text-main);
+    background: var(--border-color);
+    transform: scale(1.1);
+}
+
+/* ── Replied Message Preview Inside Bubble ── */
+.reply-preview-bubble {
+    background: rgba(0, 0, 0, 0.1);
+    border-left: 3px solid rgba(255, 255, 255, 0.5);
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: inherit;
+}
+
+[data-theme='dark'] .reply-preview-bubble {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.reply-sender {
+    font-weight: 800;
+    opacity: 0.9;
+    margin-bottom: 2px;
+}
+
+.reply-text {
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+/* ── Replying Banner Above Input ── */
+.replying-banner {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 10px 15px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    margin-bottom: -1px;
+    backdrop-filter: blur(10px);
+}
+
+.replying-banner-content {
+    flex: 1;
+    overflow: hidden;
+}
+
+.replying-label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #EC4899;
+}
+
+.replying-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.replying-cancel {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+    margin-left: 10px;
+    transition: color 0.2s;
+}
+
+.replying-cancel:hover {
+    color: #ef4444;
+}
+
+/* ── Unread Messages Divider ── */
+.unread-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0;
+    width: 100%;
+    position: relative;
+    padding: 0 10%;
+}
+
+.unread-divider::before,
+.unread-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
+}
+
+.unread-divider span {
+    padding: 0 15px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    background: transparent;
 }
 
 /* Modals */
@@ -1228,19 +1557,19 @@ body.chat-bg-arctic {
     backdrop-filter: blur(10px);
     z-index: 1002;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
 }
 
 .uni-panel {
-    width: 100%;
-    max-width: 560px;
-    max-height: 92vh;
+    width: 90%;
+    max-width: 480px;
+    max-height: 80vh;
     background: var(--card-bg);
     backdrop-filter: blur(40px) saturate(200%);
-    border-radius: 40px 40px 0 0;
+    border-radius: 32px;
     overflow-y: auto;
-    animation: slideUpPanel 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: modalPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     display: flex;
     flex-direction: column;
 }
@@ -1260,7 +1589,7 @@ body.chat-bg-arctic {
     width: 100%;
     height: 260px;
     flex-shrink: 0;
-    border-radius: 40px 40px 0 0;
+    border-radius: 32px 32px 0 0;
     overflow: hidden;
     background: var(--input-bg);
 }
