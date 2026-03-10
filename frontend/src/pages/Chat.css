@@ -23,8 +23,8 @@
     background: transparent !important;
 }
 
-/* Global scrollbar remove — extreme right window scrollbar */
-body {
+/* Global scrollbar remove — extreme right window scrollbar (SCOPED) */
+body:has(.chat-layout) {
     overflow: hidden !important;
 }
 
@@ -2184,12 +2184,22 @@ body.chat-bg-arctic {
 }
 
 .uni-panel::-webkit-scrollbar {
-    width: 4px;
+    width: 10px;
+}
+
+.uni-panel::-webkit-scrollbar-track {
+    background: var(--input-bg);
+    border-radius: 10px;
 }
 
 .uni-panel::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 4px;
+    background: var(--accent-gradient);
+    border-radius: 10px;
+    border: 2px solid var(--bg-color);
+}
+
+.uni-panel::-webkit-scrollbar-thumb:hover {
+    filter: brightness(1.1);
 }
 
 /* ── Hero ── */
