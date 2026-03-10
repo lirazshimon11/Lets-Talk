@@ -125,7 +125,7 @@ export default function App() {
         <Route path="/" element={session ? <ProfileMustGuard session={session}><WithNavbar session={session}><Home /></WithNavbar></ProfileMustGuard> : <WithNavbar session={session}><Landing /></WithNavbar>} />
         <Route path="/chats" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><Chats /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><PersonalInfo /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
-        <Route path="/chat/:id" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><Chat /></ProfileMustGuard></ProtectedRoute>} />
+        <Route path="/chat/:id" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><Chat /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
       </Routes>
     </Router>
   );

@@ -289,13 +289,25 @@ input.input-field[required]:focus {
   padding-right: 10px;
 }
 
-.form-grid::-webkit-scrollbar {
-  width: 6px;
+/* Global Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-.form-grid::-webkit-scrollbar-thumb {
-  background-color: var(--border-color);
-  border-radius: 6px;
+::-webkit-scrollbar-track {
+  background: var(--input-bg);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent-gradient);
+  border-radius: 10px;
+  border: 2px solid var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  filter: brightness(1.1);
 }
 
 /* Compatibility Modal Global Styles */

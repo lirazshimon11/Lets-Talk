@@ -41,6 +41,10 @@ export default function Chat() {
     // New Features State
     const [replyTo, setReplyTo] = useState(null);
     const [firstUnreadIndex, setFirstUnreadIndex] = useState(-1);
+    const [emphasizedId, setEmphasizedId] = useState(null);
+    const [fullPickerMsgId, setFullPickerMsgId] = useState(null);
+    const [reactionDetailsId, setReactionDetailsId] = useState(null);
+    const messageRefs = useRef({});
 
     // Date Invite State
     const [showDateModal, setShowDateModal] = useState(false);
@@ -87,25 +91,87 @@ export default function Chat() {
     }, [showRoadmap]);
     const inputRef = useRef(null);
 
-    // Close emoji picker on outside click
+    const [pickerStyle, setPickerStyle] = useState({ position: 'absolute', opacity: 0, pointerEvents: 'none' });
+
+    // Close emoji/reaction picker on outside click
     useEffect(() => {
         const handler = (e) => {
-            if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target) && !e.target.closest('.emoji-trigger-btn')) {
                 setShowEmojiPicker(false);
+            }
+            if (!e.target.closest('.mini-reaction-picker') && !e.target.closest('.msg-action-btn') && !e.target.closest('.mini-reaction-btn') && !(emojiPickerRef.current && emojiPickerRef.current.contains(e.target))) {
+                setFullPickerMsgId(null);
+            }
+            if (!e.target.closest('.reaction-details-banner') && !e.target.closest('.whatsapp-reaction-bubble')) {
+                setReactionDetailsId(null);
             }
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
+    // Smart position for the full emoji picker
+    useEffect(() => {
+        if (fullPickerMsgId) {
+            const msgEl = messageRefs.current[fullPickerMsgId];
+            const containerEl = document.querySelector('.messages-container');
+            if (msgEl && containerEl) {
+                const msgRect = msgEl.getBoundingClientRect();
+                const containerRect = containerEl.getBoundingClientRect();
+                const msgData = messages.find(m => m.id === fullPickerMsgId);
+                const isMsgMine = msgData?.sender_id === currentUser?.id;
+
+                let style = { position: 'absolute', zIndex: 1000 };
+
+                // Horizontal: Towards the center
+                // If mine (Right side), picker should go to the left of the message.
+                // If theirs (Left side), picker should go to the right of the message.
+                if (isMsgMine) {
+                    style.right = 'calc(100% + 15px)';
+                } else {
+                    style.left = 'calc(100% + 15px)';
+                }
+
+                // Vertical: Calculate best fit to avoid clipping the container
+                const pickerHeight = 350;
+                const distToTop = msgRect.top - containerRect.top;
+                const distToBottom = containerRect.bottom - msgRect.bottom;
+
+                if (distToBottom > pickerHeight) {
+                    // Plenty of room below, align to top of message
+                    style.top = '0px';
+                } else if (distToTop > pickerHeight) {
+                    // Room above, align to bottom of message
+                    style.bottom = '0px';
+                } else {
+                    // Center it vertically relative to message
+                    style.top = '50%';
+                    style.transform = 'translateY(-50%)';
+                }
+
+                setPickerStyle({ ...style, opacity: 1, pointerEvents: 'all' });
+            }
+        }
+    }, [fullPickerMsgId, messages, currentUser?.id]);
+
+    const activeMsgIdRef = useRef(fullPickerMsgId);
+    activeMsgIdRef.current = fullPickerMsgId;
+
     const handleEmojiClick = (emojiData) => {
         const emoji = emojiData.emoji;
+        const msgIdToReact = activeMsgIdRef.current;
+
+        if (msgIdToReact) {
+            handleMessageReaction(msgIdToReact, emoji);
+            setFullPickerMsgId(null);
+            return;
+        }
+
         const input = inputRef.current;
         if (input) {
             const start = input.selectionStart;
             const end = input.selectionEnd;
-            const newText = text.slice(0, start) + emoji + text.slice(end);
-            setText(newText);
+            setText(prev => prev.slice(0, start) + emoji + prev.slice(end));
             // Restore cursor after emoji
             setTimeout(() => {
                 input.focus();
@@ -114,6 +180,42 @@ export default function Chat() {
         } else {
             setText(prev => prev + emoji);
         }
+    };
+
+    const scrollToMessage = (msgId) => {
+        const el = messageRefs.current[msgId];
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setEmphasizedId(msgId);
+            setTimeout(() => setEmphasizedId(null), 2000);
+        }
+    };
+
+    const handleMessageReaction = async (msgId, emoji) => {
+        const msg = messages.find(m => m.id === msgId);
+        if (!msg) return;
+
+        const currentReactions = msg.reactions || {};
+        let newReactions = { ...currentReactions };
+
+        // 1. Check if user already has a reaction with THIS EXACT emoji
+        const userAlreadyHasThisEmoji = currentReactions[emoji]?.includes(currentUser.id);
+
+        // 2. Clear all previous reactions by this user on this message (WhatsApp style: 1 reaction max)
+        Object.keys(newReactions).forEach(key => {
+            newReactions[key] = newReactions[key].filter(uid => uid !== currentUser.id);
+            if (newReactions[key].length === 0) delete newReactions[key];
+        });
+
+        if (userAlreadyHasThisEmoji) {
+            // If they clicked the same emoji they already had, we just removed it (toggle off)
+        } else {
+            // Otherwise, add the new reaction
+            if (!newReactions[emoji]) newReactions[emoji] = [];
+            newReactions[emoji].push(currentUser.id);
+        }
+
+        await supabase.from('messages').update({ reactions: newReactions }).eq('id', msgId);
     };
 
     useEffect(() => {
@@ -129,8 +231,8 @@ export default function Chat() {
                     .select(`
                         id, status, theme, message_count, created_at,
                         user1_id, user2_id,
-                        user1:profiles!conversations_user1_id_fkey(my_name, profile_image, profile_images, my_avatar),
-                        user2:profiles!conversations_user2_id_fkey(my_name, profile_image, profile_images, my_avatar)
+                        user1:profiles!conversations_user1_id_fkey(my_name, profile_image, my_avatar),
+                        user2:profiles!conversations_user2_id_fkey(my_name, profile_image, my_avatar)
                     `)
                     .eq('id', id)
                     .single();
@@ -153,7 +255,7 @@ export default function Chat() {
                 // Fetch messages
                 const { data: msgData, error: msgError } = await supabase
                     .from('messages')
-                    .select('id, sender_id, text, created_at')
+                    .select('id, sender_id, text, created_at, reactions')
                     .eq('conversation_id', id)
                     .order('created_at', { ascending: true });
 
@@ -252,7 +354,7 @@ export default function Chat() {
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    }, [messages, showEmojiPicker, fullPickerMsgId]);
 
     const handleSend = async (e) => {
         e.preventDefault();
@@ -635,6 +737,7 @@ export default function Chat() {
 
                 <div className="messages-container">
                     {messages.map((msg, idx) => {
+                        if (!currentUser || !conversation) return null;
                         const isMine = msg.sender_id === currentUser.id;
 
                         let bubbleContent = <div className="message-bubble">{msg.text}</div>;
@@ -719,7 +822,10 @@ export default function Chat() {
                                     textForCopy = actualText;
                                     bubbleContent = (
                                         <div className="message-bubble">
-                                            <div className="reply-preview-bubble">
+                                            <div
+                                                className="reply-preview-bubble clickable-reply"
+                                                onClick={() => scrollToMessage(replyData.id)}
+                                            >
                                                 <div className="reply-sender">{replyData.sender}</div>
                                                 <div className="reply-text">{replyData.text.replace(/\[REPLY_START\].*?\[REPLY_END\]/, '')}</div>
                                             </div>
@@ -732,6 +838,40 @@ export default function Chat() {
                             }
                         }
 
+                        const reactions = msg.reactions || {};
+                        const reactionEntries = Object.entries(reactions); // [emoji, uids[]]
+                        const allReactedUids = [...new Set(Object.values(reactions).flat())];
+                        const totalReactionsCount = allReactedUids.length;
+
+                        // Function to strip skin tone for comparison
+                        const stripSkinTone = (e) => e.replace(/[\u{1F3FB}-\u{1F3FF}]/gu, '');
+
+                        let displayEmojis = [];
+                        if (totalReactionsCount > 0) {
+                            if (totalReactionsCount === 1) {
+                                displayEmojis = [reactionEntries[0][0]];
+                            } else {
+                                // Exactly 2 reactions (Max in 1-on-1 chat)
+                                const user1Emoji = reactionEntries.find(e => e[1].includes(conversation.user1_id))?.[0];
+                                const user2Emoji = reactionEntries.find(e => e[1].includes(conversation.user2_id))?.[0];
+
+                                if (user1Emoji && user2Emoji) {
+                                    if (stripSkinTone(user1Emoji) === stripSkinTone(user2Emoji)) {
+                                        // Same base emoji (e.g. skin tones or identical)
+                                        // Show the most recent one (msg.reactions is usually updated sequentially in state)
+                                        // But for simplicity, we'll just show one if they are "similar"
+                                        displayEmojis = [reactionEntries[reactionEntries.length - 1][0]];
+                                    } else {
+                                        // Totally different emojis (e.g. ball and hand)
+                                        displayEmojis = [user1Emoji, user2Emoji];
+                                    }
+                                } else {
+                                    // Fallback for safety
+                                    displayEmojis = Object.keys(reactions);
+                                }
+                            }
+                        }
+
                         const unreadDivider = idx === firstUnreadIndex ? (
                             <div className="unread-divider">
                                 <span>{messages.length - firstUnreadIndex} new messages</span>
@@ -740,22 +880,114 @@ export default function Chat() {
 
                         const actionButtons = (
                             <div className={`message-actions ${isMine ? 'right' : 'left'}`}>
-                                <button className="msg-action-btn" onClick={() => setReplyTo(msg)} title="Reply">
+                                <button
+                                    className="msg-action-btn"
+                                    onClick={() => {
+                                        setReplyTo(msg);
+                                        setTimeout(() => inputRef.current?.focus(), 10);
+                                    }}
+                                    title="Reply"
+                                >
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></svg>
                                 </button>
                                 <button className="msg-action-btn" onClick={() => navigator.clipboard.writeText(textForCopy)} title="Copy">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
                                 </button>
+
                             </div>
                         );
+
+                        const miniReactionPickerUi = (!reactionDetailsId && !fullPickerMsgId) ? (
+                            <div className="mini-reaction-picker">
+                                {['❤️', '😂', '😮', '😢', '🔥', '👍'].map(emoji => (
+                                    <button key={emoji} onClick={(e) => { e.stopPropagation(); handleMessageReaction(msg.id, emoji); }} className="mini-reaction-btn">
+                                        {emoji}
+                                    </button>
+                                ))}
+                                <button
+                                    className="mini-reaction-btn plus-btn"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFullPickerMsgId(msg.id);
+                                    }}
+                                    title="More Emojis"
+                                >
+                                    +
+                                </button>
+                            </div>
+                        ) : null;
 
                         return (
                             <div key={idx} style={{ display: 'contents' }}>
                                 {unreadDivider}
-                                <div className={`message-wrapper ${isMine ? 'mine' : 'theirs'}`}>
-                                    {!isMine && actionButtons}
-                                    {bubbleContent}
-                                    {isMine && actionButtons}
+                                <div
+                                    ref={el => messageRefs.current[msg.id] = el}
+                                    className={`message-wrapper ${isMine ? 'mine' : 'theirs'} ${emphasizedId === msg.id ? 'emphasized' : ''}`}
+                                    onMouseEnter={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const picker = e.currentTarget.querySelector('.mini-reaction-picker');
+                                        if (picker) {
+                                            if (rect.top < 150) {
+                                                picker.style.bottom = 'auto';
+                                                picker.style.top = '0px';
+                                            } else {
+                                                picker.style.top = 'auto';
+                                                picker.style.bottom = 'calc(100% + 4px)';
+                                            }
+                                        }
+                                    }}
+                                >
+                                    {isMine ? (
+                                        <>
+                                            {actionButtons}
+                                            <div className="bubble-with-reactions">
+                                                {bubbleContent}
+                                                {miniReactionPickerUi}
+                                                {totalReactionsCount > 0 && (
+                                                    <div
+                                                        className={`whatsapp-reaction-bubble ${isMine ? 'mine' : 'theirs'}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setReactionDetailsId(reactionDetailsId === msg.id ? null : msg.id);
+                                                            setFullPickerMsgId(null);
+                                                        }}
+                                                    >
+                                                        {totalReactionsCount > 1 && <span className="reaction-count-num">{totalReactionsCount}</span>}
+                                                        <div className="reaction-emojis-list">
+                                                            {displayEmojis.map((emoji, i) => (
+                                                                <span key={i} className="single-reaction-emoji">{emoji}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="bubble-with-reactions">
+                                                {bubbleContent}
+                                                {miniReactionPickerUi}
+                                                {totalReactionsCount > 0 && (
+                                                    <div
+                                                        className={`whatsapp-reaction-bubble ${isMine ? 'mine' : 'theirs'}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setReactionDetailsId(reactionDetailsId === msg.id ? null : msg.id);
+                                                            setFullPickerMsgId(null);
+                                                        }}
+                                                    >
+                                                        {totalReactionsCount > 1 && <span className="reaction-count-num">{totalReactionsCount}</span>}
+                                                        <div className="reaction-emojis-list">
+                                                            {displayEmojis.map((emoji, i) => (
+                                                                <span key={i} className="single-reaction-emoji">{emoji}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {actionButtons}
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -778,26 +1010,44 @@ export default function Chat() {
                         </div>
                     )}
 
-                    {/* Emoji picker popup */}
-                    {showEmojiPicker && (
-                        <div ref={emojiPickerRef} style={{
-                            position: 'absolute', bottom: 'calc(100% + 8px)', left: '20px',
-                            zIndex: 1000, borderRadius: '16px', overflow: 'hidden',
-                            boxShadow: '0 20px 60px rgba(0,0,0,0.4)'
-                        }}>
-                            <EmojiPicker
-                                onEmojiClick={handleEmojiClick}
-                                emojiStyle="apple"
-                                theme="dark"
-                                searchDisabled={false}
-                                skinTonesDisabled={false}
-                                width={320}
-                                height={400}
-                                previewConfig={{ showPreview: false }}
-                            />
-                        </div>
-                    )}
+                    {/* Reaction Details Attached to Messaging Bar */}
+                    {reactionDetailsId && (() => {
+                        const msg = messages.find(m => m.id === reactionDetailsId);
+                        if (!msg || !msg.reactions) return null;
+                        const reactionEntries = Object.entries(msg.reactions);
+                        // Strip special tags for the preview
+                        const previewText = msg.text.replace(/\[REPLY_START\].*?\[REPLY_END\]/, '').replace(/\[.*?\](\{.*?\})?(\[.*?\])?/g, '');
 
+                        return (
+                            <div className="reaction-details-banner vertical">
+                                <div className="reaction-details-content-scroll">
+                                    <div className="reaction-details-msg-text">{previewText}</div>
+                                    <div className="reaction-details-column">
+                                        {reactionEntries.map(([emoji, uids]) => (
+                                            <div
+                                                key={emoji}
+                                                className={`reaction-detail-badge-row ${uids.includes(currentUser.id) ? 'mine' : ''}`}
+                                                onClick={() => {
+                                                    if (uids.includes(currentUser.id)) {
+                                                        handleMessageReaction(msg.id, emoji);
+                                                        setReactionDetailsId(null);
+                                                    }
+                                                }}
+                                            >
+                                                <span className="detail-emoji">{emoji}</span>
+                                                <span className="detail-count">{uids.length}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <button className="replying-cancel" onClick={() => setReactionDetailsId(null)}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Action Menu Popup */}
                     {showActionMenu && (
                         <div className="action-menu-popup">
                             <button type="button" className="action-menu-item" onClick={() => { setShowDateModal(true); setShowActionMenu(false); }}>
@@ -808,7 +1058,7 @@ export default function Chat() {
                             </button>
                         </div>
                     )}
-                    <form className="chat-input-form" onSubmit={handleSend} style={{ borderRadius: '30px', background: 'var(--card-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center' }}>
+                    <form className="chat-input-form" onSubmit={handleSend} style={{ borderRadius: '30px', background: 'var(--card-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', display: fullPickerMsgId ? 'none' : 'flex', alignItems: 'center' }}>
                         {/* Action Menu Toggle */}
                         <button
                             type="button"
@@ -851,6 +1101,29 @@ export default function Chat() {
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
                         </button>
                     </form>
+
+                    {/* Emoji picker panel replacing keyboard */}
+                    {(showEmojiPicker || fullPickerMsgId) && (
+                        <div ref={emojiPickerRef} className="bottom-emoji-panel" style={{
+                            width: '100%',
+                            height: '350px',
+                            marginTop: '15px',
+                            borderRadius: '20px',
+                            overflow: 'hidden',
+                            background: 'transparent'
+                        }}>
+                            <EmojiPicker
+                                onEmojiClick={handleEmojiClick}
+                                emojiStyle="apple"
+                                theme="dark"
+                                searchDisabled={!!fullPickerMsgId}
+                                skinTonesDisabled={false}
+                                width="100%"
+                                height="100%"
+                                previewConfig={{ showPreview: false }}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* ═══ Unified Profile + Settings Bottom Sheet ═══ */}

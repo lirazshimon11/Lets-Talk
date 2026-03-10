@@ -2,8 +2,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 100vh;
-    width: 100vw;
+    min-height: calc(100vh - 100px);
+    width: 100%;
     padding: 20px 0;
     box-sizing: border-box;
     overflow-y: auto;
@@ -12,8 +12,8 @@
 .chat-container {
     display: flex;
     flex-direction: column;
-    height: 86vh;
-    width: 95vw;
+    height: 80vh;
+    width: 100%;
     box-sizing: border-box;
     max-width: 800px;
     position: relative;
@@ -346,14 +346,7 @@
     scroll-behavior: smooth;
 }
 
-.messages-container::-webkit-scrollbar {
-    width: 6px;
-}
 
-.messages-container::-webkit-scrollbar-thumb {
-    background-color: var(--border-color);
-    border-radius: 4px;
-}
 
 .message-wrapper {
     display: flex;
@@ -369,7 +362,6 @@
 }
 
 .message-bubble {
-    max-width: 70%;
     padding: 12px 18px;
     font-size: 1rem;
     line-height: 1.5;
@@ -395,6 +387,8 @@
     color: #ffffff;
     border-radius: 20px 20px 4px 20px;
     /* Modern asymmetric radius */
+    width: fit-content;
+    max-width: 100%;
 }
 
 .message-wrapper.theirs .message-bubble {
@@ -403,6 +397,8 @@
     border-radius: 20px 20px 20px 4px;
     /* Modern asymmetric radius */
     border: 1px solid var(--border-color);
+    width: fit-content;
+    max-width: 100%;
 }
 
 .chat-input-form {
@@ -466,6 +462,8 @@
     gap: 8px;
     opacity: 0;
     transition: opacity 0.2s ease;
+    position: relative;
+    padding: 0 5px;
 }
 
 .message-wrapper:hover .message-actions {
@@ -576,6 +574,275 @@
 
 .replying-cancel:hover {
     color: #ef4444;
+}
+
+/* ── Clickable Reply ── */
+.clickable-reply {
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.clickable-reply:hover {
+    background: rgba(0, 0, 0, 0.15);
+    transform: translateX(2px);
+}
+
+[data-theme='dark'] .clickable-reply:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Emphasized Message ── */
+.message-wrapper.emphasized .message-bubble {
+    animation: messageEmphasis 1s ease-in-out infinite;
+    z-index: 10;
+}
+
+@keyframes messageEmphasis {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 rgba(236, 72, 153, 0);
+        transform: scale(1);
+    }
+
+    50% {
+        box-shadow: 0 0 25px rgba(236, 72, 153, 0.6);
+        transform: scale(1.03);
+    }
+}
+
+/* ── Message Reactions ── */
+.bubble-with-reactions {
+    position: relative;
+    max-width: 75%;
+    display: flex;
+    flex-direction: column;
+}
+
+.message-wrapper.mine .bubble-with-reactions {
+    align-items: flex-end;
+}
+
+.message-wrapper.theirs .bubble-with-reactions {
+    align-items: flex-start;
+}
+
+/* ── WhatsApp Style Reaction Bubble ── */
+.whatsapp-reaction-bubble {
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px);
+    padding: 2px 8px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-top: -8px;
+    z-index: 5;
+    animation: bubblePop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    user-select: none;
+    transition: transform 0.2s;
+}
+
+.whatsapp-reaction-bubble:hover {
+    transform: scale(1.05);
+    background: var(--input-bg);
+}
+
+.reaction-count-num {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--text-main);
+    opacity: 0.9;
+}
+
+.reaction-emojis-list {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.single-reaction-emoji {
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+/* ── Reaction Details Banner (Attached to Input) ── */
+.reaction-details-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: var(--card-bg);
+    backdrop-filter: blur(30px);
+    border: 1px solid var(--glass-border);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    padding: 14px 20px;
+    animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 10;
+    max-height: 250px;
+}
+
+.reaction-details-content-scroll {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.reaction-details-msg-text {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    opacity: 0.8;
+    font-style: italic;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--glass-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.reaction-details-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.reaction-detail-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bubble-theirs);
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    transition: all 0.2s ease;
+    user-select: none;
+    color: var(--text-main);
+}
+
+.reaction-detail-badge-row.mine {
+    cursor: pointer;
+    background: var(--bubble-mine);
+    color: #ffffff;
+    border: none;
+}
+
+.reaction-detail-badge-row.mine .detail-count {
+    color: #ffffff;
+}
+
+.reaction-detail-badge-row.mine:hover {
+    transform: translateX(4px);
+    opacity: 0.9;
+}
+
+.detail-emoji {
+    font-size: 1.3rem;
+}
+
+.detail-count {
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--text-main);
+}
+
+/* ── Mini Reaction Picker ── */
+.mini-reaction-picker {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    background: var(--card-bg);
+    backdrop-filter: blur(30px);
+    border: 1px solid var(--glass-border);
+    border-radius: 30px;
+    padding: 6px 10px;
+    display: flex;
+    gap: 4px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px) scale(0.95);
+    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+
+
+.mini-reaction-picker::after {
+    content: '';
+    position: absolute;
+    bottom: -20px;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: transparent;
+}
+
+.message-wrapper:hover .mini-reaction-picker {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
+
+/* 🧪 Fix: Don't show the emoji list if we are hovering the reaction bubble itself */
+.message-wrapper:has(.whatsapp-reaction-bubble:hover) .mini-reaction-picker {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px) scale(0.9);
+}
+
+.message-wrapper.theirs .mini-reaction-picker {
+    left: 0;
+    right: auto;
+}
+
+.message-wrapper.mine .mini-reaction-picker {
+    right: 0;
+    left: auto;
+}
+
+@keyframes reactionPickerPop {
+    from {
+        opacity: 0;
+        transform: scale(0.5) translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.mini-reaction-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.mini-reaction-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.3);
+}
+
+.mini-reaction-btn.plus-btn {
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: var(--text-muted);
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ── Unread Messages Divider ── */
