@@ -36,6 +36,8 @@ export default function Chat() {
     const [endingMatch, setEndingMatch] = useState(false);
     const [matchEndedToast, setMatchEndedToast] = useState(false);
     const prevMsgCountRef = useRef(null);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [allConversations, setAllConversations] = useState([]);
     const [showRevealAnim, setShowRevealAnim] = useState(false);
 
     // New Features State
@@ -218,6 +220,55 @@ export default function Chat() {
         await supabase.from('messages').update({ reactions: newReactions }).eq('id', msgId);
     };
 
+    // Reset reveal animation tracking and clear state when switching chats
+    useEffect(() => {
+        prevMsgCountRef.current = null;
+        setShowRevealAnim(false);
+        setLoading(true);
+        setConversation(null);
+        setMessages([]);
+    }, [id]);
+
+    // Fetch sidebar conversations
+    useEffect(() => {
+        const fetchSidebar = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const userId = session?.user?.id;
+                if (!userId) return;
+                const { data, error } = await supabase
+                    .from('conversations')
+                    .select(`
+                        id, status, theme, message_count,
+                        user1_id, user2_id,
+                        user1:profiles!conversations_user1_id_fkey(my_name, profile_image, my_avatar),
+                        user2:profiles!conversations_user2_id_fkey(my_name, profile_image, my_avatar)
+                    `)
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                const mapped = (data || []).map(conv => {
+                    const isU1 = conv.user1_id === userId;
+                    const other = isU1 ? conv.user2 : conv.user1;
+                    const storedKey = `lastRead_${userId}_${conv.id}`;
+                    const lastRead = parseInt(localStorage.getItem(storedKey) || '0', 10);
+                    return {
+                        id: conv.id,
+                        status: conv.status,
+                        message_count: conv.message_count,
+                        unread_count: Math.max(0, conv.message_count - lastRead),
+                        other_username: other?.my_name || 'Unknown',
+                        other_profile_image: other?.profile_image || null,
+                        other_avatar: other?.my_avatar || 'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4'
+                    };
+                });
+                setAllConversations(mapped);
+            } catch (err) {
+                console.error('Sidebar fetch error:', err);
+            }
+        };
+        fetchSidebar();
+    }, [id]);
+
     useEffect(() => {
         const fetchChat = async () => {
             try {
@@ -368,6 +419,7 @@ export default function Chat() {
         }
 
         setText('');
+        setShowEmojiPicker(false);
 
         await supabase.from('messages').insert({
             conversation_id: id,
@@ -678,856 +730,947 @@ export default function Chat() {
     };
 
     return (
-        <div className="chat-page-wrapper">
-            <div className={`chat-container theme-${theme}${chatBg !== 'none' ? ` chat-bg-${chatBg}` : ''}`}>
-                {showRevealAnim && (
-                    <div className="reveal-animation-overlay">
-                        <div className="reveal-content">
-                            <div className="reveal-avatars">
-                                <div className="reveal-person mine">
-                                    <div className="reveal-img-wrapper">
-                                        <img src={conversation.my_avatar} className="reveal-avatar-img" alt="avatar" />
-                                        <img src={conversation.my_profile_image} className="reveal-real-img" alt="profile" />
-                                    </div>
-                                    <div className="reveal-name">You</div>
+        <div className="chat-layout">
+            {/* ── Sidebar — always visible ── */}
+            <aside className="chat-sidebar">
+                <ul className="chat-sidebar-list">
+                    {allConversations.map(conv => {
+                        const isActive = conv.id === id;
+                        const avatarSrc = conv.status === 'revealed' && conv.other_profile_image
+                            ? conv.other_profile_image
+                            : conv.other_avatar;
+                        return (
+                            <li
+                                key={conv.id}
+                                className={`chat-sidebar-item${isActive ? ' chat-sidebar-item--active' : ''}`}
+                                onClick={() => navigate(`/chat/${conv.id}`)}
+                            >
+                                <div className="chat-sidebar-avatar">
+                                    <img src={avatarSrc} alt={conv.other_username} />
+                                    {conv.unread_count > 0 && (
+                                        <span className="chat-sidebar-badge">{conv.unread_count}</span>
+                                    )}
                                 </div>
-                                <div className="reveal-heart-center">🤍</div>
-                                <div className="reveal-person theirs">
-                                    <div className="reveal-img-wrapper">
-                                        <img src={conversation.other_avatar} className="reveal-avatar-img" alt="avatar" />
-                                        <img src={conversation.other_profile_image} className="reveal-real-img" alt="profile" />
+                                <div className="chat-sidebar-info">
+                                    <span className="chat-sidebar-name">{conv.other_username}</span>
+                                    <span className="chat-sidebar-status">
+                                        {conv.status === 'revealed' ? '✨ Revealed' : `🔒 ${conv.message_count} msgs`}
+                                    </span>
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ul>
+            </aside>
+
+
+            <div className="chat-page-wrapper">
+                <div className={`chat-container theme-${theme}${chatBg !== 'none' ? ` chat-bg-${chatBg}` : ''}`}>
+                    {showRevealAnim && (
+                        <div className="reveal-animation-overlay">
+                            <div className="reveal-content">
+                                <div className="reveal-avatars">
+                                    <div className="reveal-person mine">
+                                        <div className="reveal-img-wrapper">
+                                            <img src={conversation.my_avatar} className="reveal-avatar-img" alt="avatar" />
+                                            <img src={conversation.my_profile_image} className="reveal-real-img" alt="profile" />
+                                        </div>
+                                        <div className="reveal-name">You</div>
                                     </div>
-                                    <div className="reveal-name">{conversation.other_username}</div>
+                                    <div className="reveal-heart-center">🤍</div>
+                                    <div className="reveal-person theirs">
+                                        <div className="reveal-img-wrapper">
+                                            <img src={conversation.other_avatar} className="reveal-avatar-img" alt="avatar" />
+                                            <img src={conversation.other_profile_image} className="reveal-real-img" alt="profile" />
+                                        </div>
+                                        <div className="reveal-name">{conversation.other_username}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
-                <header className="chat-header">
-                    <div className="header-left">
-                        <button onClick={(e) => { e.stopPropagation(); navigate('/chats'); }} className="btn-back">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-                            Back
-                        </button>
-                    </div>
-                    <div className="header-center" style={{ cursor: 'pointer' }} onClick={() => setShowSettings(true)}>
-                        {isRevealed && displayImage ? (
-                            <img src={displayImage} alt="profile" className="chat-profile-img"
-                                onClick={(e) => { e.stopPropagation(); setSelectedImg(displayImage); }} />
-                        ) : (
-                            <img src={conversation.other_avatar} alt="avatar" className="chat-profile-img" style={{ border: '2px solid var(--accent)' }} />
-                        )}
-                        <span className="header-username">{conversation.other_username}</span>
-                    </div>
-                    <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button className="btn-why-match" onClick={(e) => { e.stopPropagation(); setShowRoadmap(true); }} style={{ margin: '0', padding: '6px 12px', fontSize: '0.75rem', borderRadius: '16px', background: 'rgba(168, 85, 247, 0.2)', color: '#a855f7' }}>
-                            Memories
-                        </button>
-                        <button className="btn-why-match" onClick={(e) => { e.stopPropagation(); handleShowCompatibility(e); }} style={{ margin: '0', padding: '6px 16px', fontSize: '0.75rem', borderRadius: '16px' }}>
-                            Why We Matched
-                        </button>
-                    </div>
-                </header>
-
-                {!isRevealed && (
-                    <div className="chat-reveal-banner">
-                        <span className="mystery-text">Mystery Active: {conversation.message_count}/{threshold} messages until reveal</span>
-                    </div>
-                )}
-
-                <div className="messages-container">
-                    {messages.map((msg, idx) => {
-                        if (!currentUser || !conversation) return null;
-                        const isMine = msg.sender_id === currentUser.id;
-
-                        let bubbleContent = <div className="message-bubble">{msg.text}</div>;
-                        let textForCopy = msg.text;
-
-                        if (msg.text.startsWith('[DATE_INVITE]')) {
-                            try {
-                                const data = JSON.parse(msg.text.replace('[DATE_INVITE]', ''));
-                                const dateObj = new Date(data.datetime);
-                                const formattedDate = dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-                                bubbleContent = (
-                                    <div className="message-bubble date-invite-bubble">
-                                        <div className="date-invite-header">
-                                            📅 Date Invitation
-                                        </div>
-                                        <div className="date-invite-body">
-                                            <p><strong>When:</strong> {formattedDate}</p>
-                                            <p><strong>Where:</strong> {data.place}</p>
-                                            <p style={{ marginTop: '12px', fontStyle: 'italic' }}>"{data.description}"</p>
-                                        </div>
-                                        <div className="date-invite-footer">
-                                            {data.status === 'pending' ? (
-                                                isMine ? (
-                                                    <div className="date-status pending">Waiting for response...</div>
-                                                ) : (
-                                                    <div className="date-actions">
-                                                        <button className="btn-date-accept" onClick={() => handleUpdateStatus(msg.id, msg.text, 'accepted', '[DATE_INVITE]')}>Accept</button>
-                                                        <button className="btn-date-decline" onClick={() => handleUpdateStatus(msg.id, msg.text, 'declined', '[DATE_INVITE]')}>Decline</button>
-                                                    </div>
-                                                )
-                                            ) : data.status === 'accepted' ? (
-                                                <div className="date-status accepted">✨ Date Accepted! ✨</div>
-                                            ) : (
-                                                <div className="date-status declined">❌ Declined</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            } catch (e) {
-                                bubbleContent = <div className="message-bubble">Sent a date invite (Error loading)</div>;
-                            }
-                        } else if (msg.text.startsWith('[STATUS_DECLARATION]')) {
-                            try {
-                                const data = JSON.parse(msg.text.replace('[STATUS_DECLARATION]', ''));
-                                bubbleContent = (
-                                    <div className="message-bubble date-invite-bubble">
-                                        <div className="date-invite-header" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-                                            💕 Relationship Update
-                                        </div>
-                                        <div className="date-invite-body" style={{ textAlign: 'center' }}>
-                                            <p>Requested Status:</p>
-                                            <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: '10px 0' }}>{data.declaration}</p>
-                                        </div>
-                                        <div className="date-invite-footer">
-                                            {data.status === 'pending' ? (
-                                                isMine ? (
-                                                    <div className="date-status pending">Waiting for response...</div>
-                                                ) : (
-                                                    <div className="date-actions">
-                                                        <button className="btn-date-accept" onClick={() => handleUpdateStatus(msg.id, msg.text, 'accepted', '[STATUS_DECLARATION]')}>Agree</button>
-                                                        <button className="btn-date-decline" onClick={() => handleUpdateStatus(msg.id, msg.text, 'declined', '[STATUS_DECLARATION]')}>Disagree</button>
-                                                    </div>
-                                                )
-                                            ) : data.status === 'accepted' ? (
-                                                <div className="date-status accepted">✨ Agreed! ✨</div>
-                                            ) : (
-                                                <div className="date-status declined">❌ Disagreed</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            } catch (e) {
-                                bubbleContent = <div className="message-bubble">Sent a status update (Error loading)</div>;
-                            }
-                        } else if (msg.text.startsWith('[REPLY_START]')) {
-                            const endIdx = msg.text.indexOf('[REPLY_END]');
-                            if (endIdx !== -1) {
-                                try {
-                                    const replyData = JSON.parse(msg.text.substring(13, endIdx));
-                                    const actualText = msg.text.substring(endIdx + 11);
-                                    textForCopy = actualText;
-                                    bubbleContent = (
-                                        <div className="message-bubble">
-                                            <div
-                                                className="reply-preview-bubble clickable-reply"
-                                                onClick={() => scrollToMessage(replyData.id)}
-                                            >
-                                                <div className="reply-sender">{replyData.sender}</div>
-                                                <div className="reply-text">{replyData.text.replace(/\[REPLY_START\].*?\[REPLY_END\]/, '')}</div>
-                                            </div>
-                                            {actualText}
-                                        </div>
-                                    );
-                                } catch (e) {
-                                    bubbleContent = <div className="message-bubble">{msg.text}</div>;
-                                }
-                            }
-                        }
-
-                        const reactions = msg.reactions || {};
-                        const reactionEntries = Object.entries(reactions); // [emoji, uids[]]
-                        const allReactedUids = [...new Set(Object.values(reactions).flat())];
-                        const totalReactionsCount = allReactedUids.length;
-
-                        // Function to strip skin tone for comparison
-                        const stripSkinTone = (e) => e.replace(/[\u{1F3FB}-\u{1F3FF}]/gu, '');
-
-                        let displayEmojis = [];
-                        if (totalReactionsCount > 0) {
-                            if (totalReactionsCount === 1) {
-                                displayEmojis = [reactionEntries[0][0]];
-                            } else {
-                                // Exactly 2 reactions (Max in 1-on-1 chat)
-                                const user1Emoji = reactionEntries.find(e => e[1].includes(conversation.user1_id))?.[0];
-                                const user2Emoji = reactionEntries.find(e => e[1].includes(conversation.user2_id))?.[0];
-
-                                if (user1Emoji && user2Emoji) {
-                                    if (stripSkinTone(user1Emoji) === stripSkinTone(user2Emoji)) {
-                                        // Same base emoji (e.g. skin tones or identical)
-                                        // Show the most recent one (msg.reactions is usually updated sequentially in state)
-                                        // But for simplicity, we'll just show one if they are "similar"
-                                        displayEmojis = [reactionEntries[reactionEntries.length - 1][0]];
-                                    } else {
-                                        // Totally different emojis (e.g. ball and hand)
-                                        displayEmojis = [user1Emoji, user2Emoji];
-                                    }
-                                } else {
-                                    // Fallback for safety
-                                    displayEmojis = Object.keys(reactions);
-                                }
-                            }
-                        }
-
-                        const unreadDivider = idx === firstUnreadIndex ? (
-                            <div className="unread-divider">
-                                <span>{messages.length - firstUnreadIndex} new messages</span>
-                            </div>
-                        ) : null;
-
-                        const actionButtons = (
-                            <div className={`message-actions ${isMine ? 'right' : 'left'}`}>
-                                <button
-                                    className="msg-action-btn"
-                                    onClick={() => {
-                                        setReplyTo(msg);
-                                        setTimeout(() => inputRef.current?.focus(), 10);
-                                    }}
-                                    title="Reply"
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></svg>
-                                </button>
-                                <button className="msg-action-btn" onClick={() => navigator.clipboard.writeText(textForCopy)} title="Copy">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-                                </button>
-
-                            </div>
-                        );
-
-                        const miniReactionPickerUi = (!reactionDetailsId && !fullPickerMsgId) ? (
-                            <div className="mini-reaction-picker">
-                                {['❤️', '😂', '😮', '😢', '🔥', '👍'].map(emoji => (
-                                    <button key={emoji} onClick={(e) => { e.stopPropagation(); handleMessageReaction(msg.id, emoji); }} className="mini-reaction-btn">
-                                        {emoji}
-                                    </button>
-                                ))}
-                                <button
-                                    className="mini-reaction-btn plus-btn"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFullPickerMsgId(msg.id);
-                                    }}
-                                    title="More Emojis"
-                                >
-                                    +
-                                </button>
-                            </div>
-                        ) : null;
-
-                        return (
-                            <div key={idx} style={{ display: 'contents' }}>
-                                {unreadDivider}
-                                <div
-                                    ref={el => messageRefs.current[msg.id] = el}
-                                    className={`message-wrapper ${isMine ? 'mine' : 'theirs'} ${emphasizedId === msg.id ? 'emphasized' : ''}`}
-                                    onMouseEnter={(e) => {
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        const picker = e.currentTarget.querySelector('.mini-reaction-picker');
-                                        if (picker) {
-                                            if (rect.top < 150) {
-                                                picker.style.bottom = 'auto';
-                                                picker.style.top = '0px';
-                                            } else {
-                                                picker.style.top = 'auto';
-                                                picker.style.bottom = 'calc(100% + 4px)';
-                                            }
-                                        }
-                                    }}
-                                >
-                                    {isMine ? (
-                                        <>
-                                            {actionButtons}
-                                            <div className="bubble-with-reactions">
-                                                {bubbleContent}
-                                                {miniReactionPickerUi}
-                                                {totalReactionsCount > 0 && (
-                                                    <div
-                                                        className={`whatsapp-reaction-bubble ${isMine ? 'mine' : 'theirs'}`}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setReactionDetailsId(reactionDetailsId === msg.id ? null : msg.id);
-                                                            setFullPickerMsgId(null);
-                                                        }}
-                                                    >
-                                                        {totalReactionsCount > 1 && <span className="reaction-count-num">{totalReactionsCount}</span>}
-                                                        <div className="reaction-emojis-list">
-                                                            {displayEmojis.map((emoji, i) => (
-                                                                <span key={i} className="single-reaction-emoji">{emoji}</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="bubble-with-reactions">
-                                                {bubbleContent}
-                                                {miniReactionPickerUi}
-                                                {totalReactionsCount > 0 && (
-                                                    <div
-                                                        className={`whatsapp-reaction-bubble ${isMine ? 'mine' : 'theirs'}`}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setReactionDetailsId(reactionDetailsId === msg.id ? null : msg.id);
-                                                            setFullPickerMsgId(null);
-                                                        }}
-                                                    >
-                                                        {totalReactionsCount > 1 && <span className="reaction-count-num">{totalReactionsCount}</span>}
-                                                        <div className="reaction-emojis-list">
-                                                            {displayEmojis.map((emoji, i) => (
-                                                                <span key={i} className="single-reaction-emoji">{emoji}</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {actionButtons}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                    <div ref={messagesEndRef} />
-                </div>
-
-                <div className="chat-input-wrapper" style={{ padding: '0 20px 20px', position: 'relative' }}>
-
-                    {/* Replying To Banner */}
-                    {replyTo && (
-                        <div className="replying-banner">
-                            <div className="replying-banner-content">
-                                <span className="replying-label">Replying to {replyTo.sender_id === currentUser.id ? 'yourself' : conversation.other_username}</span>
-                                <div className="replying-text">{replyTo.text.replace(/\[.*?\](\{.*?\})?(\[.*?\])?/g, '')}</div>
-                            </div>
-                            <button className="replying-cancel" onClick={() => setReplyTo(null)}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    )}
+                    <header className="chat-header">
+                        <div className="header-left">
+                            <button onClick={(e) => { e.stopPropagation(); navigate('/chats'); }} className="btn-back">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+                                Back
                             </button>
+                        </div>
+                        <div className="header-center" style={{ cursor: 'pointer' }} onClick={() => setShowSettings(true)}>
+                            {isRevealed && displayImage ? (
+                                <img src={displayImage} alt="profile" className="chat-profile-img"
+                                    onClick={(e) => { e.stopPropagation(); setSelectedImg(displayImage); }} />
+                            ) : (
+                                <img src={conversation.other_avatar} alt="avatar" className="chat-profile-img" style={{ border: '2px solid var(--accent)' }} />
+                            )}
+                            <span className="header-username">{conversation.other_username}</span>
+                        </div>
+                        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button className="btn-why-match" onClick={(e) => { e.stopPropagation(); setShowRoadmap(true); }} style={{ margin: '0', padding: '6px 12px', fontSize: '0.75rem', borderRadius: '16px', background: 'rgba(168, 85, 247, 0.2)', color: '#a855f7' }}>
+                                Memories
+                            </button>
+                            <button className="btn-why-match" onClick={(e) => { e.stopPropagation(); handleShowCompatibility(e); }} style={{ margin: '0', padding: '6px 16px', fontSize: '0.75rem', borderRadius: '16px' }}>
+                                Why We Matched
+                            </button>
+                        </div>
+                    </header>
+
+                    {!isRevealed && (
+                        <div className="chat-reveal-banner">
+                            <span className="mystery-text">Mystery Active: {conversation.message_count}/{threshold} messages until reveal</span>
                         </div>
                     )}
 
-                    {/* Reaction Details Attached to Messaging Bar */}
-                    {reactionDetailsId && (() => {
-                        const msg = messages.find(m => m.id === reactionDetailsId);
-                        if (!msg || !msg.reactions) return null;
-                        const reactionEntries = Object.entries(msg.reactions);
-                        // Strip special tags for the preview
-                        const previewText = msg.text.replace(/\[REPLY_START\].*?\[REPLY_END\]/, '').replace(/\[.*?\](\{.*?\})?(\[.*?\])?/g, '');
+                    <div className="messages-container">
+                        {messages.map((msg, idx) => {
+                            if (!currentUser || !conversation) return null;
+                            const isMine = msg.sender_id === currentUser.id;
 
-                        return (
-                            <div className="reaction-details-banner vertical">
-                                <div className="reaction-details-content-scroll">
-                                    <div className="reaction-details-msg-text">{previewText}</div>
-                                    <div className="reaction-details-column">
-                                        {reactionEntries.map(([emoji, uids]) => (
-                                            <div
-                                                key={emoji}
-                                                className={`reaction-detail-badge-row ${uids.includes(currentUser.id) ? 'mine' : ''}`}
-                                                onClick={() => {
-                                                    if (uids.includes(currentUser.id)) {
-                                                        handleMessageReaction(msg.id, emoji);
-                                                        setReactionDetailsId(null);
-                                                    }
-                                                }}
-                                            >
-                                                <span className="detail-emoji">{emoji}</span>
-                                                <span className="detail-count">{uids.length}</span>
+                            const isEmojiOnly = (() => {
+                                const noSpace = msg.text.replace(/[\s\n]/g, '');
+                                if (!noSpace) return false;
+                                return /^(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\u200d)+$/u.test(noSpace.replace(/[\uFE0F\u{1F3FB}-\u{1F3FF}]/gu, ''));
+                            })();
+
+                            const isSingleEmoji = isEmojiOnly && [...new Intl.Segmenter().segment(msg.text.replace(/[\s\n]/g, ''))].length === 1;
+
+                            let animClass = "";
+                            if (isSingleEmoji) {
+                                const t = msg.text;
+                                if (/[😀😁😂🤣😃😄😅😆😉😊😋😎😍😘🥰😗😙😚☺️🙂🤗🤩🥳🤓😛😜🤪😝🤑🤠]/u.test(t)) {
+                                    animClass = "anim-happy";
+                                } else if (/[😞😔😟😕🙁☹️😣😖😫😩🥺😢😭😥😓]/u.test(t)) {
+                                    animClass = "anim-sad";
+                                } else if (/[😤😠😡🤬👿😾]/u.test(t)) {
+                                    animClass = "anim-angry";
+                                } else if (/[😮😯😲😳🤯😱😨😰😧😦]/u.test(t)) {
+                                    animClass = "anim-surprise";
+                                } else if (/[🙄🤔🤨😐😑😶🤐😬🤥🤫]/u.test(t)) {
+                                    animClass = "anim-wobble";
+                                } else if (/[\u{1F600}-\u{1F64F}]/u.test(t)) {
+                                    animClass = "anim-happy"; // generic face fallback
+                                }
+                                // No face emoji = no animClass
+                            }
+
+                            let bubbleClassName = isEmojiOnly ? `message-bubble emoji-only ${animClass}`.trim() : "message-bubble";
+                            let bubbleContent = <div className={bubbleClassName}>{msg.text}</div>;
+                            let textForCopy = msg.text;
+
+                            if (msg.text.startsWith('[DATE_INVITE]')) {
+                                try {
+                                    const data = JSON.parse(msg.text.replace('[DATE_INVITE]', ''));
+                                    const dateObj = new Date(data.datetime);
+                                    const formattedDate = dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                                    bubbleContent = (
+                                        <div className="message-bubble date-invite-bubble">
+                                            <div className="date-invite-header">
+                                                📅 Date Invitation
+                                            </div>
+                                            <div className="date-invite-body">
+                                                <p><strong>When:</strong> {formattedDate}</p>
+                                                <p><strong>Where:</strong> {data.place}</p>
+                                                <p style={{ marginTop: '12px', fontStyle: 'italic' }}>"{data.description}"</p>
+                                            </div>
+                                            <div className="date-invite-footer">
+                                                {data.status === 'pending' ? (
+                                                    isMine ? (
+                                                        <div className="date-status pending">Waiting for response...</div>
+                                                    ) : (
+                                                        <div className="date-actions">
+                                                            <button className="btn-date-accept" onClick={() => handleUpdateStatus(msg.id, msg.text, 'accepted', '[DATE_INVITE]')}>Accept</button>
+                                                            <button className="btn-date-decline" onClick={() => handleUpdateStatus(msg.id, msg.text, 'declined', '[DATE_INVITE]')}>Decline</button>
+                                                        </div>
+                                                    )
+                                                ) : data.status === 'accepted' ? (
+                                                    <div className="date-status accepted">✨ Date Accepted! ✨</div>
+                                                ) : (
+                                                    <div className="date-status declined">❌ Declined</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                } catch (e) {
+                                    bubbleContent = <div className="message-bubble">Sent a date invite (Error loading)</div>;
+                                }
+                            } else if (msg.text.startsWith('[STATUS_DECLARATION]')) {
+                                try {
+                                    const data = JSON.parse(msg.text.replace('[STATUS_DECLARATION]', ''));
+                                    bubbleContent = (
+                                        <div className="message-bubble date-invite-bubble">
+                                            <div className="date-invite-header" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+                                                💕 Relationship Update
+                                            </div>
+                                            <div className="date-invite-body" style={{ textAlign: 'center' }}>
+                                                <p>Requested Status:</p>
+                                                <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: '10px 0' }}>{data.declaration}</p>
+                                            </div>
+                                            <div className="date-invite-footer">
+                                                {data.status === 'pending' ? (
+                                                    isMine ? (
+                                                        <div className="date-status pending">Waiting for response...</div>
+                                                    ) : (
+                                                        <div className="date-actions">
+                                                            <button className="btn-date-accept" onClick={() => handleUpdateStatus(msg.id, msg.text, 'accepted', '[STATUS_DECLARATION]')}>Agree</button>
+                                                            <button className="btn-date-decline" onClick={() => handleUpdateStatus(msg.id, msg.text, 'declined', '[STATUS_DECLARATION]')}>Disagree</button>
+                                                        </div>
+                                                    )
+                                                ) : data.status === 'accepted' ? (
+                                                    <div className="date-status accepted">✨ Agreed! ✨</div>
+                                                ) : (
+                                                    <div className="date-status declined">❌ Disagreed</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                } catch (e) {
+                                    bubbleContent = <div className="message-bubble">Sent a status update (Error loading)</div>;
+                                }
+                            } else if (msg.text.startsWith('[REPLY_START]')) {
+                                const endIdx = msg.text.indexOf('[REPLY_END]');
+                                if (endIdx !== -1) {
+                                    try {
+                                        const replyData = JSON.parse(msg.text.substring(13, endIdx));
+                                        const actualText = msg.text.substring(endIdx + 11);
+                                        textForCopy = actualText;
+                                        bubbleContent = (
+                                            <div className="message-bubble">
+                                                <div
+                                                    className="reply-preview-bubble clickable-reply"
+                                                    onClick={() => scrollToMessage(replyData.id)}
+                                                >
+                                                    <div className="reply-sender">{replyData.sender}</div>
+                                                    <div className="reply-text">{replyData.text.replace(/\[REPLY_START\].*?\[REPLY_END\]/, '')}</div>
+                                                </div>
+                                                {actualText}
+                                            </div>
+                                        );
+                                    } catch (e) {
+                                        bubbleContent = <div className="message-bubble">{msg.text}</div>;
+                                    }
+                                }
+                            }
+
+                            const reactions = msg.reactions || {};
+                            const reactionEntries = Object.entries(reactions); // [emoji, uids[]]
+                            const allReactedUids = [...new Set(Object.values(reactions).flat())];
+                            const totalReactionsCount = allReactedUids.length;
+
+                            // Function to strip skin tone for comparison
+                            const stripSkinTone = (e) => e.replace(/[\u{1F3FB}-\u{1F3FF}]/gu, '');
+
+                            let displayEmojis = [];
+                            if (totalReactionsCount > 0) {
+                                if (totalReactionsCount === 1) {
+                                    displayEmojis = [reactionEntries[0][0]];
+                                } else {
+                                    // Exactly 2 reactions (Max in 1-on-1 chat)
+                                    const user1Emoji = reactionEntries.find(e => e[1].includes(conversation.user1_id))?.[0];
+                                    const user2Emoji = reactionEntries.find(e => e[1].includes(conversation.user2_id))?.[0];
+
+                                    if (user1Emoji && user2Emoji) {
+                                        if (stripSkinTone(user1Emoji) === stripSkinTone(user2Emoji)) {
+                                            // Same base emoji (e.g. skin tones or identical)
+                                            // Show the most recent one (msg.reactions is usually updated sequentially in state)
+                                            // But for simplicity, we'll just show one if they are "similar"
+                                            displayEmojis = [reactionEntries[reactionEntries.length - 1][0]];
+                                        } else {
+                                            // Totally different emojis (e.g. ball and hand)
+                                            displayEmojis = [user1Emoji, user2Emoji];
+                                        }
+                                    } else {
+                                        // Fallback for safety
+                                        displayEmojis = Object.keys(reactions);
+                                    }
+                                }
+                            }
+
+                            const unreadDivider = idx === firstUnreadIndex ? (
+                                <div className="unread-divider">
+                                    <span>{messages.length - firstUnreadIndex} new messages</span>
+                                </div>
+                            ) : null;
+
+                            const actionButtons = (
+                                <div className={`message-actions ${isMine ? 'right' : 'left'}`}>
+                                    <button
+                                        className="msg-action-btn"
+                                        onClick={() => {
+                                            setReplyTo(msg);
+                                            setTimeout(() => inputRef.current?.focus(), 10);
+                                        }}
+                                        title="Reply"
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></svg>
+                                    </button>
+                                    <button className="msg-action-btn" onClick={() => navigator.clipboard.writeText(textForCopy)} title="Copy">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                    </button>
+
+                                </div>
+                            );
+
+                            const miniReactionPickerUi = (!reactionDetailsId && !fullPickerMsgId) ? (
+                                <div className="mini-reaction-picker">
+                                    {['❤️', '😂', '😮', '😢', '🔥', '👍'].map(emoji => (
+                                        <button key={emoji} onClick={(e) => { e.stopPropagation(); handleMessageReaction(msg.id, emoji); }} className="mini-reaction-btn">
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                    <button
+                                        className="mini-reaction-btn plus-btn"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setFullPickerMsgId(msg.id);
+                                        }}
+                                        title="More Emojis"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            ) : null;
+
+                            return (
+                                <div key={idx} style={{ display: 'contents' }}>
+                                    {unreadDivider}
+                                    <div
+                                        ref={el => messageRefs.current[msg.id] = el}
+                                        className={`message-wrapper ${isMine ? 'mine' : 'theirs'} ${emphasizedId === msg.id ? 'emphasized' : ''}`}
+                                        onMouseEnter={(e) => {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            const picker = e.currentTarget.querySelector('.mini-reaction-picker');
+                                            if (picker) {
+                                                if (rect.top < 150) {
+                                                    picker.style.bottom = 'auto';
+                                                    picker.style.top = '0px';
+                                                } else {
+                                                    picker.style.top = 'auto';
+                                                    picker.style.bottom = 'calc(100% + 4px)';
+                                                }
+                                            }
+                                        }}
+                                    >
+                                        {isMine ? (
+                                            <>
+                                                {actionButtons}
+                                                <div className="bubble-with-reactions">
+                                                    {bubbleContent}
+                                                    {miniReactionPickerUi}
+                                                    {totalReactionsCount > 0 && (
+                                                        <div
+                                                            className={`whatsapp-reaction-bubble ${isMine ? 'mine' : 'theirs'}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setReactionDetailsId(reactionDetailsId === msg.id ? null : msg.id);
+                                                                setFullPickerMsgId(null);
+                                                            }}
+                                                        >
+                                                            {totalReactionsCount > 1 && <span className="reaction-count-num">{totalReactionsCount}</span>}
+                                                            <div className="reaction-emojis-list">
+                                                                {displayEmojis.map((emoji, i) => (
+                                                                    <span key={i} className="single-reaction-emoji">{emoji}</span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="bubble-with-reactions">
+                                                    {bubbleContent}
+                                                    {miniReactionPickerUi}
+                                                    {totalReactionsCount > 0 && (
+                                                        <div
+                                                            className={`whatsapp-reaction-bubble ${isMine ? 'mine' : 'theirs'}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setReactionDetailsId(reactionDetailsId === msg.id ? null : msg.id);
+                                                                setFullPickerMsgId(null);
+                                                            }}
+                                                        >
+                                                            {totalReactionsCount > 1 && <span className="reaction-count-num">{totalReactionsCount}</span>}
+                                                            <div className="reaction-emojis-list">
+                                                                {displayEmojis.map((emoji, i) => (
+                                                                    <span key={i} className="single-reaction-emoji">{emoji}</span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {actionButtons}
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    <div className="chat-input-wrapper" style={{ padding: '0 20px 20px', position: 'relative' }}>
+
+                        {/* Replying To Banner */}
+                        {replyTo && (
+                            <div className="replying-banner">
+                                <div className="replying-banner-content">
+                                    <span className="replying-label">Replying to {replyTo.sender_id === currentUser.id ? 'yourself' : conversation.other_username}</span>
+                                    <div className="replying-text">{replyTo.text.replace(/\[.*?\](\{.*?\})?(\[.*?\])?/g, '')}</div>
+                                </div>
+                                <button className="replying-cancel" onClick={() => setReplyTo(null)}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Reaction Details Attached to Messaging Bar */}
+                        {reactionDetailsId && (() => {
+                            const msg = messages.find(m => m.id === reactionDetailsId);
+                            if (!msg || !msg.reactions) return null;
+                            const reactionEntries = Object.entries(msg.reactions);
+                            // Strip special tags for the preview
+                            const previewText = msg.text.replace(/\[REPLY_START\].*?\[REPLY_END\]/, '').replace(/\[.*?\](\{.*?\})?(\[.*?\])?/g, '');
+
+                            return (
+                                <div className="reaction-details-banner vertical">
+                                    <div className="reaction-details-content-scroll">
+                                        <div className="reaction-details-msg-text">{previewText}</div>
+                                        <div className="reaction-details-column">
+                                            {reactionEntries.map(([emoji, uids]) => (
+                                                <div
+                                                    key={emoji}
+                                                    className={`reaction-detail-badge-row ${uids.includes(currentUser.id) ? 'mine' : ''}`}
+                                                    onClick={() => {
+                                                        if (uids.includes(currentUser.id)) {
+                                                            handleMessageReaction(msg.id, emoji);
+                                                            setReactionDetailsId(null);
+                                                        }
+                                                    }}
+                                                >
+                                                    <span className="detail-emoji">{emoji}</span>
+                                                    <span className="detail-count">{uids.length}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <button className="replying-cancel" onClick={() => setReactionDetailsId(null)}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                    </button>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Action Menu Popup */}
+                        {showActionMenu && (
+                            <div className="action-menu-popup">
+                                <button type="button" className="action-menu-item" onClick={() => { setShowDateModal(true); setShowActionMenu(false); }}>
+                                    📅 Suggest a Date
+                                </button>
+                                <button type="button" className="action-menu-item" disabled={dateCount < 2} onClick={() => { setShowStatusModal(true); setShowActionMenu(false); }}>
+                                    💕 Declare Status {dateCount < 2 ? '(Requires 2+ dates)' : ''}
+                                </button>
+                            </div>
+                        )}
+                        <form className="chat-input-form" onSubmit={handleSend} style={{ borderRadius: '30px', background: 'var(--card-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', display: fullPickerMsgId ? 'none' : 'flex', alignItems: 'center' }}>
+                            {/* Action Menu Toggle */}
+                            <button
+                                type="button"
+                                onClick={() => setShowActionMenu(!showActionMenu)}
+                                className="emoji-trigger-btn"
+                                title="Actions"
+                            >
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                </svg>
+                            </button>
+
+                            {/* Emoji button — soft SVG smiley */}
+                            <button
+                                type="button"
+                                onClick={() => setShowEmojiPicker(p => !p)}
+                                className="emoji-trigger-btn"
+                                title="Emoji"
+                            >
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                                    <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="2.5" strokeLinecap="round" />
+                                    <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="2.5" strokeLinecap="round" />
+                                </svg>
+                            </button>
+
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                value={text}
+                                onChange={e => setText(e.target.value)}
+                                placeholder="Message..."
+                                className="chat-input"
+                                style={{ border: 'none', background: 'transparent', boxShadow: 'none', flex: 1 }}
+                            />
+                            <button type="submit" className="chat-send-btn">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+                            </button>
+                        </form>
+
+                        {/* Emoji picker panel - Popup style */}
+                        {showEmojiPicker && !fullPickerMsgId && (
+                            <div ref={emojiPickerRef} className="popup-emoji-picker" style={{
+                                position: 'absolute',
+                                bottom: '90px',
+                                left: '70px',
+                                zIndex: 100,
+                                width: '320px',
+                                height: '400px',
+                                borderRadius: '20px',
+                                overflow: 'hidden',
+                                boxShadow: '0 10px 40px var(--accent-shadow)',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--card-bg)',
+                                backdropFilter: 'var(--backdrop-filter)'
+                            }}>
+                                <EmojiPicker
+                                    onEmojiClick={handleEmojiClick}
+                                    emojiStyle="apple"
+                                    theme="dark"
+                                    searchDisabled={false}
+                                    skinTonesDisabled={false}
+                                    width="100%"
+                                    height="100%"
+                                    previewConfig={{ showPreview: false }}
+                                />
+                            </div>
+                        )}
+
+                        {/* Reaction picker panel - Full bottom style */}
+                        {fullPickerMsgId && (
+                            <div ref={emojiPickerRef} className="bottom-emoji-panel" style={{
+                                width: '100%',
+                                height: '350px',
+                                marginTop: '15px',
+                                borderRadius: '20px',
+                                overflow: 'hidden',
+                                background: 'transparent'
+                            }}>
+                                <EmojiPicker
+                                    onEmojiClick={handleEmojiClick}
+                                    emojiStyle="apple"
+                                    theme="dark"
+                                    searchDisabled={true}
+                                    skinTonesDisabled={false}
+                                    width="100%"
+                                    height="100%"
+                                    previewConfig={{ showPreview: false }}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ═══ Unified Profile + Settings Bottom Sheet ═══ */}
+                    {showSettings && (
+                        <div className="uni-overlay" onClick={() => setShowSettings(false)}>
+                            <div className="uni-panel" onClick={e => e.stopPropagation()}>
+
+                                {/* Hero photo carousel or mystery */}
+                                <div className="uni-hero">
+                                    {isRevealed && allImages.length > 0 ? (
+                                        <>
+                                            <img
+                                                src={allImages[heroSlide] || displayImage}
+                                                alt={conversation.other_username}
+                                                className="uni-hero-img"
+                                                style={{ cursor: 'pointer' }}
+                                                onClick={() => setSelectedImg(allImages[heroSlide] || displayImage)}
+                                            />
+                                            {/* Prev / Next arrows */}
+                                            {allImages.length > 1 && (
+                                                <>
+                                                    <button
+                                                        className="uni-hero-arrow left"
+                                                        onClick={e => { e.stopPropagation(); setHeroSlide(i => (i - 1 + allImages.length) % allImages.length); }}
+                                                    >‹</button>
+                                                    <button
+                                                        className="uni-hero-arrow right"
+                                                        onClick={e => { e.stopPropagation(); setHeroSlide(i => (i + 1) % allImages.length); }}
+                                                    >›</button>
+                                                    {/* Dot indicators */}
+                                                    <div className="uni-hero-dots">
+                                                        {allImages.map((_, i) => (
+                                                            <div
+                                                                key={i}
+                                                                className={`uni-hero-dot ${i === heroSlide ? 'active' : ''}`}
+                                                                onClick={e => { e.stopPropagation(); setHeroSlide(i); }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </>
+                                    ) : !isRevealed ? (
+                                        <div className="uni-hero-mystery" style={{ background: 'var(--card-bg)' }}>
+                                            <img src={conversation.other_avatar} alt="mystery avatar" style={{ width: '120px', height: '120px', borderRadius: '50%', marginBottom: '15px' }} />
+                                            <p className="uni-mystery-text">Photos unlock after {threshold} messages</p>
+                                            <div className="uni-mystery-bar">
+                                                <div className="uni-mystery-fill" style={{ width: `${Math.min(100, (conversation.message_count / threshold) * 100)}%` }} />
+                                            </div>
+                                            <p className="uni-mystery-count">{conversation.message_count} / {threshold}</p>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Overlaid name + close */}
+                                    <div className="uni-hero-overlay">
+                                        <p className="uni-hero-name">{conversation.other_username}</p>
+                                        <span className="uni-hero-status">{isRevealed ? '🔓 Revealed' : '🔒 Mystery mode'}</span>
+                                    </div>
+                                    <button className="uni-close" onClick={() => setShowSettings(false)}>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                    </button>
+                                </div>
+
+                                <div className="uni-divider" />
+
+                                {/* Bubble style */}
+                                <div className="uni-section">
+                                    <p className="uni-section-label">💬 Bubble Style</p>
+                                    <div className="uni-themes">
+                                        {[
+                                            { key: 'default', label: 'Default', bg: 'var(--card-bg)', border: true },
+                                            { key: 'sunset', label: 'Sunset', bg: 'linear-gradient(135deg,#ec4899,#be185d)' },
+                                            { key: 'ocean', label: 'Ocean', bg: 'linear-gradient(135deg,#008eb3,#0369a1)' },
+                                            { key: 'neon', label: 'Neon', bg: 'linear-gradient(135deg,#b900ff,#7e22ce)' },
+                                            { key: 'forest', label: 'Forest', bg: 'linear-gradient(135deg,#22c55e,#15803d)' },
+                                            { key: 'coral', label: 'Coral', bg: 'linear-gradient(135deg,#f97316,#c2410c)' },
+                                            { key: 'gold', label: 'Gold', bg: 'linear-gradient(135deg,#eab308,#a16207)' },
+                                        ].map(({ key, label, bg, border }) => (
+                                            <div key={key} className="uni-theme-item">
+                                                <div
+                                                    className={`uni-theme-swatch ${theme === key ? 'active' : ''}`}
+                                                    style={{ background: bg, border: border ? '1px solid var(--border-color)' : 'none' }}
+                                                    onClick={() => handleThemeChange(key)}
+                                                />
+                                                <span className="uni-swatch-label">{label}</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                                <button className="replying-cancel" onClick={() => setReactionDetailsId(null)}>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                </button>
-                            </div>
-                        );
-                    })()}
 
-                    {/* Action Menu Popup */}
-                    {showActionMenu && (
-                        <div className="action-menu-popup">
-                            <button type="button" className="action-menu-item" onClick={() => { setShowDateModal(true); setShowActionMenu(false); }}>
-                                📅 Suggest a Date
-                            </button>
-                            <button type="button" className="action-menu-item" disabled={dateCount < 2} onClick={() => { setShowStatusModal(true); setShowActionMenu(false); }}>
-                                💕 Declare Status {dateCount < 2 ? '(Requires 2+ dates)' : ''}
-                            </button>
+                                {/* Background mood */}
+                                <div className="uni-section">
+                                    <p className="uni-section-label">🎨 Background Mood</p>
+                                    <div className="uni-bg-grid">
+                                        {[
+                                            { key: 'none', label: 'None' },
+                                            { key: 'aurora', label: 'Aurora' },
+                                            { key: 'sunset', label: 'Sunset' },
+                                            { key: 'ocean', label: 'Ocean' },
+                                            { key: 'rose', label: 'Rose' },
+                                            { key: 'emerald', label: 'Emerald' },
+                                            { key: 'galaxy', label: 'Galaxy' },
+                                            { key: 'nordic', label: 'Nordic' },
+                                            { key: 'midnight', label: 'Midnight' },
+                                            { key: 'cherry', label: 'Cherry' },
+                                            { key: 'desert', label: 'Desert' },
+                                            { key: 'arctic', label: 'Arctic' },
+                                        ].map(({ key, label }) => (
+                                            <div key={key} className="uni-bg-item">
+                                                <div
+                                                    className={`uni-bg-swatch bg-swatch-preview-${key} ${chatBg === key ? 'active' : ''}`}
+                                                    onClick={() => setChatBg(key)}
+                                                />
+                                                <span className="uni-swatch-label">{label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Preferences toggles */}
+                                <div className="uni-section">
+                                    <p className="uni-section-label">⚙️ Preferences</p>
+                                    <div className="uni-toggles">
+                                        {[
+                                            { icon: '🔔', label: 'Mute notifications', val: muteNotifs, set: setMuteNotifs },
+                                            { icon: '👀', label: 'Read receipts', val: readReceipts, set: setReadReceipts },
+                                            { icon: '⏱️', label: 'Disappearing messages', val: disappearMsgs, set: setDisappearMsgs },
+                                        ].map(({ icon, label, val, set }) => (
+                                            <label key={label} className="uni-toggle-row">
+                                                <span className="uni-toggle-icon">{icon}</span>
+                                                <span className="uni-toggle-label">{label}</span>
+                                                <div className={`uni-toggle-switch ${val ? 'on' : ''}`} onClick={() => set(p => !p)}>
+                                                    <div className="uni-toggle-thumb" />
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="uni-divider" />
+
+                                {/* Danger */}
+                                <div className="uni-danger">
+                                    <button className="uni-danger-btn" onClick={handleReport}>🚩 Report User</button>
+                                    <button className="uni-danger-btn red" onClick={() => { setShowSettings(false); setShowEndConfirm(true); }}>💔 End Match</button>
+                                </div>
+
+                            </div>
                         </div>
                     )}
-                    <form className="chat-input-form" onSubmit={handleSend} style={{ borderRadius: '30px', background: 'var(--card-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', display: fullPickerMsgId ? 'none' : 'flex', alignItems: 'center' }}>
-                        {/* Action Menu Toggle */}
-                        <button
-                            type="button"
-                            onClick={() => setShowActionMenu(!showActionMenu)}
-                            className="emoji-trigger-btn"
-                            title="Actions"
-                        >
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="3"></circle>
-                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                            </svg>
-                        </button>
 
-                        {/* Emoji button — soft SVG smiley */}
-                        <button
-                            type="button"
-                            onClick={() => setShowEmojiPicker(p => !p)}
-                            className="emoji-trigger-btn"
-                            title="Emoji"
-                        >
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                                <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="2.5" strokeLinecap="round" />
-                                <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="2.5" strokeLinecap="round" />
-                            </svg>
-                        </button>
+                    {/* Compatibility Modal */}
+                    {showCompatibility && (
+                        <div className="settings-modal-overlay" onClick={() => setShowCompatibility(false)}>
+                            <div className="settings-modal compatibility-modal" onClick={e => e.stopPropagation()}>
+                                <div className="settings-header" style={{ marginBottom: '15px' }}>
+                                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '1.5rem' }}>✨</span> Why We Matched
+                                    </h3>
+                                    <button className="btn-close" onClick={() => setShowCompatibility(false)}>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                    </button>
+                                </div>
 
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={text}
-                            onChange={e => setText(e.target.value)}
-                            placeholder="Message..."
-                            className="chat-input"
-                            style={{ border: 'none', background: 'transparent', boxShadow: 'none', flex: 1 }}
-                            onFocus={() => setShowEmojiPicker(false)}
-                        />
-                        <button type="submit" className="chat-send-btn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
-                        </button>
-                    </form>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px', padding: '15px', background: 'var(--input-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                    <span style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-main)' }}>Match Score</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{ width: '100px', height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                                            <div style={{ width: `${compatibilityPercentage}%`, height: '100%', background: 'var(--accent-gradient)', borderRadius: '4px', transition: 'width 1s ease-out' }}></div>
+                                        </div>
+                                        <span style={{ fontWeight: '800', fontSize: '1.2rem', color: '#10b981' }}>{compatibilityPercentage}%</span>
+                                    </div>
+                                </div>
 
-                    {/* Emoji picker panel replacing keyboard */}
-                    {(showEmojiPicker || fullPickerMsgId) && (
-                        <div ref={emojiPickerRef} className="bottom-emoji-panel" style={{
-                            width: '100%',
-                            height: '350px',
-                            marginTop: '15px',
-                            borderRadius: '20px',
-                            overflow: 'hidden',
-                            background: 'transparent'
-                        }}>
-                            <EmojiPicker
-                                onEmojiClick={handleEmojiClick}
-                                emojiStyle="apple"
-                                theme="dark"
-                                searchDisabled={!!fullPickerMsgId}
-                                skinTonesDisabled={false}
-                                width="100%"
-                                height="100%"
-                                previewConfig={{ showPreview: false }}
-                            />
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '15px' }}>
+                                    Here are the specific preferences you both share:
+                                </p>
+
+                                <div className="compatibility-table">
+                                    <div className="comp-row comp-header">
+                                        <div className="comp-col">Trait</div>
+                                        <div className="comp-col">Your Preference</div>
+                                        <div className="comp-col">Their Trait</div>
+                                    </div>
+                                    {compatibilityData
+                                        .filter(item => item.matched && item.preference !== 'Any')
+                                        .map((item, i) => (
+                                            <div key={i} className="comp-row matched">
+                                                <div className="comp-col label">{item.label}</div>
+                                                <div className="comp-col" style={{ color: '#ec4899', fontWeight: '800' }}>{item.preference}</div>
+                                                <div className="comp-col" style={{ color: '#10b981', fontWeight: '800' }}>{item.their_trait}</div>
+                                            </div>
+                                        ))}
+                                    {compatibilityData.filter(item => item.matched && item.preference !== 'Any').length === 0 && (
+                                        <div className="comp-row">
+                                            <div className="comp-col" style={{ width: '100%', textAlign: 'center', opacity: 0.7 }}>
+                                                You matched perfectly on standard criteria without any specific strict preferences!
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
+                {/* Fullscreen Image Overlay */}
+                <FullscreenImage src={selectedImg} onClose={() => setSelectedImg(null)} />
 
-                {/* ═══ Unified Profile + Settings Bottom Sheet ═══ */}
-                {showSettings && (
-                    <div className="uni-overlay" onClick={() => setShowSettings(false)}>
-                        <div className="uni-panel" onClick={e => e.stopPropagation()}>
-
-                            {/* Hero photo carousel or mystery */}
-                            <div className="uni-hero">
-                                {isRevealed && allImages.length > 0 ? (
-                                    <>
-                                        <img
-                                            src={allImages[heroSlide] || displayImage}
-                                            alt={conversation.other_username}
-                                            className="uni-hero-img"
-                                            style={{ cursor: 'pointer' }}
-                                            onClick={() => setSelectedImg(allImages[heroSlide] || displayImage)}
-                                        />
-                                        {/* Prev / Next arrows */}
-                                        {allImages.length > 1 && (
-                                            <>
-                                                <button
-                                                    className="uni-hero-arrow left"
-                                                    onClick={e => { e.stopPropagation(); setHeroSlide(i => (i - 1 + allImages.length) % allImages.length); }}
-                                                >‹</button>
-                                                <button
-                                                    className="uni-hero-arrow right"
-                                                    onClick={e => { e.stopPropagation(); setHeroSlide(i => (i + 1) % allImages.length); }}
-                                                >›</button>
-                                                {/* Dot indicators */}
-                                                <div className="uni-hero-dots">
-                                                    {allImages.map((_, i) => (
-                                                        <div
-                                                            key={i}
-                                                            className={`uni-hero-dot ${i === heroSlide ? 'active' : ''}`}
-                                                            onClick={e => { e.stopPropagation(); setHeroSlide(i); }}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </>
-                                        )}
-                                    </>
-                                ) : !isRevealed ? (
-                                    <div className="uni-hero-mystery" style={{ background: 'var(--card-bg)' }}>
-                                        <img src={conversation.other_avatar} alt="mystery avatar" style={{ width: '120px', height: '120px', borderRadius: '50%', marginBottom: '15px' }} />
-                                        <p className="uni-mystery-text">Photos unlock after {threshold} messages</p>
-                                        <div className="uni-mystery-bar">
-                                            <div className="uni-mystery-fill" style={{ width: `${Math.min(100, (conversation.message_count / threshold) * 100)}%` }} />
-                                        </div>
-                                        <p className="uni-mystery-count">{conversation.message_count} / {threshold}</p>
-                                    </div>
-                                ) : null}
-
-                                {/* Overlaid name + close */}
-                                <div className="uni-hero-overlay">
-                                    <p className="uni-hero-name">{conversation.other_username}</p>
-                                    <span className="uni-hero-status">{isRevealed ? '🔓 Revealed' : '🔒 Mystery mode'}</span>
-                                </div>
-                                <button className="uni-close" onClick={() => setShowSettings(false)}>
+                {/* ═══ Suggest a Date Modal ═══ */}
+                {showDateModal && (
+                    <div className="settings-modal-overlay" onClick={() => setShowDateModal(false)}>
+                        <div className="settings-modal" onClick={e => e.stopPropagation()}>
+                            <div className="settings-header" style={{ marginBottom: '15px' }}>
+                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '1.5rem' }}>📅</span> Suggest a Date
+                                </h3>
+                                <button className="btn-close" onClick={() => { setShowDateModal(false); setShowCalendar(false); setShowTimePicker(false); }}>
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                                 </button>
                             </div>
+                            <form onSubmit={(e) => {
+                                e.preventDefault();
+                                handleSendDateInvite();
+                            }}>
+                                <label className="date-input-label">When?</label>
+                                <div className="compact-date-row">
+                                    <button type="button" className={`compact-date-btn ${showCalendar ? 'active' : ''}`} onClick={() => { setShowCalendar(!showCalendar); setShowTimePicker(false); }}>
+                                        📅 {selectedDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                    </button>
+                                    <button type="button" className={`compact-date-btn ${showTimePicker ? 'active' : ''}`} onClick={() => { setShowTimePicker(!showTimePicker); setShowCalendar(false); }}>
+                                        ⏱️ {dateParams.timeH}:{dateParams.timeM} {dateParams.timeAmpm}
+                                    </button>
+                                </div>
 
-                            <div className="uni-divider" />
-
-                            {/* Bubble style */}
-                            <div className="uni-section">
-                                <p className="uni-section-label">💬 Bubble Style</p>
-                                <div className="uni-themes">
-                                    {[
-                                        { key: 'default', label: 'Default', bg: 'var(--card-bg)', border: true },
-                                        { key: 'sunset', label: 'Sunset', bg: 'linear-gradient(135deg,#ec4899,#be185d)' },
-                                        { key: 'ocean', label: 'Ocean', bg: 'linear-gradient(135deg,#008eb3,#0369a1)' },
-                                        { key: 'neon', label: 'Neon', bg: 'linear-gradient(135deg,#b900ff,#7e22ce)' },
-                                        { key: 'forest', label: 'Forest', bg: 'linear-gradient(135deg,#22c55e,#15803d)' },
-                                        { key: 'coral', label: 'Coral', bg: 'linear-gradient(135deg,#f97316,#c2410c)' },
-                                        { key: 'gold', label: 'Gold', bg: 'linear-gradient(135deg,#eab308,#a16207)' },
-                                    ].map(({ key, label, bg, border }) => (
-                                        <div key={key} className="uni-theme-item">
-                                            <div
-                                                className={`uni-theme-swatch ${theme === key ? 'active' : ''}`}
-                                                style={{ background: bg, border: border ? '1px solid var(--border-color)' : 'none' }}
-                                                onClick={() => handleThemeChange(key)}
-                                            />
-                                            <span className="uni-swatch-label">{label}</span>
+                                {showCalendar && (
+                                    <div className="custom-calendar popup">
+                                        <div className="cal-header">
+                                            <button type="button" className="cal-header-btn" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))}>&lt;</button>
+                                            <span>{calMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+                                            <button type="button" className="cal-header-btn" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))}>&gt;</button>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Background mood */}
-                            <div className="uni-section">
-                                <p className="uni-section-label">🎨 Background Mood</p>
-                                <div className="uni-bg-grid">
-                                    {[
-                                        { key: 'none', label: 'None' },
-                                        { key: 'aurora', label: 'Aurora' },
-                                        { key: 'sunset', label: 'Sunset' },
-                                        { key: 'ocean', label: 'Ocean' },
-                                        { key: 'rose', label: 'Rose' },
-                                        { key: 'emerald', label: 'Emerald' },
-                                        { key: 'galaxy', label: 'Galaxy' },
-                                        { key: 'nordic', label: 'Nordic' },
-                                        { key: 'midnight', label: 'Midnight' },
-                                        { key: 'cherry', label: 'Cherry' },
-                                        { key: 'desert', label: 'Desert' },
-                                        { key: 'arctic', label: 'Arctic' },
-                                    ].map(({ key, label }) => (
-                                        <div key={key} className="uni-bg-item">
-                                            <div
-                                                className={`uni-bg-swatch bg-swatch-preview-${key} ${chatBg === key ? 'active' : ''}`}
-                                                onClick={() => setChatBg(key)}
-                                            />
-                                            <span className="uni-swatch-label">{label}</span>
+                                        <div className="cal-grid">
+                                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={`dn-${i}`} className="cal-day-name">{d}</div>)}
+                                            {Array(firstDayOfMonth(calMonth.getFullYear(), calMonth.getMonth())).fill(null).map((_, i) => <div key={`b-${i}`} className="cal-blank" />)}
+                                            {Array.from({ length: daysInMonth(calMonth.getFullYear(), calMonth.getMonth()) }, (_, i) => i + 1).map(d => {
+                                                const currentDate = new Date(calMonth.getFullYear(), calMonth.getMonth(), d);
+                                                const isSelected = selectedDate.toDateString() === currentDate.toDateString();
+                                                return (
+                                                    <div
+                                                        key={d}
+                                                        className={`cal-day ${isSelected ? 'selected' : ''}`}
+                                                        onClick={() => { setSelectedDate(currentDate); setShowCalendar(false); }}
+                                                    >
+                                                        {d}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
+                                    </div>
+                                )}
 
-                            {/* Preferences toggles */}
-                            <div className="uni-section">
-                                <p className="uni-section-label">⚙️ Preferences</p>
-                                <div className="uni-toggles">
-                                    {[
-                                        { icon: '🔔', label: 'Mute notifications', val: muteNotifs, set: setMuteNotifs },
-                                        { icon: '👀', label: 'Read receipts', val: readReceipts, set: setReadReceipts },
-                                        { icon: '⏱️', label: 'Disappearing messages', val: disappearMsgs, set: setDisappearMsgs },
-                                    ].map(({ icon, label, val, set }) => (
-                                        <label key={label} className="uni-toggle-row">
-                                            <span className="uni-toggle-icon">{icon}</span>
-                                            <span className="uni-toggle-label">{label}</span>
-                                            <div className={`uni-toggle-switch ${val ? 'on' : ''}`} onClick={() => set(p => !p)}>
-                                                <div className="uni-toggle-thumb" />
-                                            </div>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
+                                {showTimePicker && (
+                                    <div className="custom-time-picker popup">
+                                        <div className="time-col">
+                                            <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeH: String((parseInt(p.timeH, 10) % 12) + 1).padStart(2, '0') }))}>▲</button>
+                                            <div className="time-val">{dateParams.timeH}</div>
+                                            <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeH: String((parseInt(p.timeH, 10) - 2 + 12) % 12 + 1).padStart(2, '0') }))}>▼</button>
+                                        </div>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-muted)' }}>:</div>
+                                        <div className="time-col">
+                                            <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeM: String((parseInt(p.timeM, 10) + 5) % 60).padStart(2, '0') }))}>▲</button>
+                                            <div className="time-val">{dateParams.timeM}</div>
+                                            <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeM: String((parseInt(p.timeM, 10) - 5 + 60) % 60).padStart(2, '0') }))}>▼</button>
+                                        </div>
+                                        <div className="time-col" style={{ marginLeft: '10px' }}>
+                                            <button type="button" className="time-ampm-btn" onClick={() => setDateParams(p => ({ ...p, timeAmpm: p.timeAmpm === 'AM' ? 'PM' : 'AM' }))}>{dateParams.timeAmpm}</button>
+                                        </div>
+                                    </div>
+                                )}
 
-                            <div className="uni-divider" />
+                                <label className="date-input-label">Where?</label>
+                                <input
+                                    type="text"
+                                    className="input-field"
+                                    placeholder="e.g. Central Park Cafe"
+                                    value={dateParams.place}
+                                    onChange={e => setDateParams({ ...dateParams, place: e.target.value })}
+                                    style={{ marginBottom: '14px' }}
+                                    required
+                                />
 
-                            {/* Danger */}
-                            <div className="uni-danger">
-                                <button className="uni-danger-btn" onClick={handleReport}>🚩 Report User</button>
-                                <button className="uni-danger-btn red" onClick={() => { setShowSettings(false); setShowEndConfirm(true); }}>💔 End Match</button>
-                            </div>
+                                <label className="date-input-label">The Pitch (Convince them!)</label>
+                                <textarea
+                                    className="input-field date-textarea"
+                                    placeholder="I make a mean cup of coffee..."
+                                    value={dateParams.description}
+                                    onChange={e => setDateParams({ ...dateParams, description: e.target.value })}
+                                    required
+                                />
 
+                                <button type="submit" className="btn-primary" style={{ marginTop: '15px' }}>Send Invite</button>
+                            </form>
                         </div>
                     </div>
                 )}
 
-                {/* Compatibility Modal */}
-                {showCompatibility && (
-                    <div className="settings-modal-overlay" onClick={() => setShowCompatibility(false)}>
-                        <div className="settings-modal compatibility-modal" onClick={e => e.stopPropagation()}>
+                {/* ═══ Relation Status Declaration Modal ═══ */}
+                {showStatusModal && (
+                    <div className="settings-modal-overlay" onClick={() => setShowStatusModal(false)}>
+                        <div className="settings-modal" onClick={e => e.stopPropagation()}>
                             <div className="settings-header" style={{ marginBottom: '15px' }}>
                                 <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '1.5rem' }}>✨</span> Why We Matched
+                                    <span style={{ fontSize: '1.5rem' }}>💕</span> Declare Status
                                 </h3>
-                                <button className="btn-close" onClick={() => setShowCompatibility(false)}>
+                                <button className="btn-close" onClick={() => setShowStatusModal(false)}>
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                                 </button>
                             </div>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '15px' }}>Select the new relationship status you want to propose for this match.</p>
+                            <form onSubmit={(e) => {
+                                e.preventDefault();
+                                handleSendStatusDeclaration();
+                            }}>
+                                <select
+                                    className="input-field"
+                                    value={statusType}
+                                    onChange={e => setStatusType(e.target.value)}
+                                    style={{ marginBottom: '14px', width: '100%' }}
+                                >
+                                    <option value="Dating">Dating</option>
+                                    <option value="Couple">Couple</option>
+                                    <option value="Friends with Benefits">Friends with Benefits</option>
+                                    <option value="Break Up">Break Up</option>
+                                </select>
 
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px', padding: '15px', background: 'var(--input-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                                <span style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-main)' }}>Match Score</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ width: '100px', height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
-                                        <div style={{ width: `${compatibilityPercentage}%`, height: '100%', background: 'var(--accent-gradient)', borderRadius: '4px', transition: 'width 1s ease-out' }}></div>
-                                    </div>
-                                    <span style={{ fontWeight: '800', fontSize: '1.2rem', color: '#10b981' }}>{compatibilityPercentage}%</span>
-                                </div>
+                                <button type="submit" className="btn-primary" style={{ marginTop: '15px', background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>Send Declaration</button>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* ═══ Roadmap Modal ═══ */}
+                {showRoadmap && (
+                    <div className="roadmap-modal-overlay" onClick={() => setShowRoadmap(false)}>
+                        <div className="roadmap-modal" onClick={e => e.stopPropagation()}>
+                            <div className="settings-header" style={{ marginBottom: '20px' }}>
+                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '1.5rem' }}>📸</span> Memories
+                                </h3>
+                                <button className="btn-close" onClick={() => setShowRoadmap(false)}>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                </button>
                             </div>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '25px' }}>Look back on your journey.</p>
 
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '15px' }}>
-                                Here are the specific preferences you both share:
+                            {renderGraph()}
+                        </div>
+                    </div>
+                )}
+
+                {/* ═══ End Match Confirmation Modal ═══ */}
+                {showEndConfirm && (
+                    <div className="end-match-overlay" onClick={() => { if (!endingMatch) setShowEndConfirm(false); }}>
+                        <div className="end-match-modal" onClick={e => e.stopPropagation()}>
+                            <div className="end-match-icon">💔</div>
+                            <h2 className="end-match-title">End This Match?</h2>
+                            <p className="end-match-desc">
+                                This will permanently delete the entire conversation and all messages.
+                                <strong> Both you and {conversation.other_username} will be notified</strong> and redirected.
                             </p>
-
-                            <div className="compatibility-table">
-                                <div className="comp-row comp-header">
-                                    <div className="comp-col">Trait</div>
-                                    <div className="comp-col">Your Preference</div>
-                                    <div className="comp-col">Their Trait</div>
-                                </div>
-                                {compatibilityData
-                                    .filter(item => item.matched && item.preference !== 'Any')
-                                    .map((item, i) => (
-                                        <div key={i} className="comp-row matched">
-                                            <div className="comp-col label">{item.label}</div>
-                                            <div className="comp-col" style={{ color: '#ec4899', fontWeight: '800' }}>{item.preference}</div>
-                                            <div className="comp-col" style={{ color: '#10b981', fontWeight: '800' }}>{item.their_trait}</div>
-                                        </div>
-                                    ))}
-                                {compatibilityData.filter(item => item.matched && item.preference !== 'Any').length === 0 && (
-                                    <div className="comp-row">
-                                        <div className="comp-col" style={{ width: '100%', textAlign: 'center', opacity: 0.7 }}>
-                                            You matched perfectly on standard criteria without any specific strict preferences!
-                                        </div>
-                                    </div>
-                                )}
+                            <div className="end-match-actions">
+                                <button
+                                    className="end-match-cancel"
+                                    onClick={() => setShowEndConfirm(false)}
+                                    disabled={endingMatch}
+                                >
+                                    Keep Chatting
+                                </button>
+                                <button
+                                    className="end-match-confirm"
+                                    onClick={handleEndChat}
+                                    disabled={endingMatch}
+                                >
+                                    {endingMatch ? (
+                                        <><span className="end-match-spinner" /> Ending...</>
+                                    ) : (
+                                        '💔 End Match'
+                                    )}
+                                </button>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ═══ Match Ended Toast (shown to the OTHER user) ═══ */}
+                {matchEndedToast && (
+                    <div className="match-ended-toast">
+                        <span className="match-ended-toast-icon">💔</span>
+                        <div>
+                            <p className="match-ended-toast-title">Match Ended</p>
+                            <p className="match-ended-toast-sub">{conversation.other_username} ended the match. Redirecting...</p>
                         </div>
                     </div>
                 )}
             </div>
-            {/* Fullscreen Image Overlay */}
-            <FullscreenImage src={selectedImg} onClose={() => setSelectedImg(null)} />
-
-            {/* ═══ Suggest a Date Modal ═══ */}
-            {showDateModal && (
-                <div className="settings-modal-overlay" onClick={() => setShowDateModal(false)}>
-                    <div className="settings-modal" onClick={e => e.stopPropagation()}>
-                        <div className="settings-header" style={{ marginBottom: '15px' }}>
-                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '1.5rem' }}>📅</span> Suggest a Date
-                            </h3>
-                            <button className="btn-close" onClick={() => { setShowDateModal(false); setShowCalendar(false); setShowTimePicker(false); }}>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                            </button>
-                        </div>
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            handleSendDateInvite();
-                        }}>
-                            <label className="date-input-label">When?</label>
-                            <div className="compact-date-row">
-                                <button type="button" className={`compact-date-btn ${showCalendar ? 'active' : ''}`} onClick={() => { setShowCalendar(!showCalendar); setShowTimePicker(false); }}>
-                                    📅 {selectedDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                </button>
-                                <button type="button" className={`compact-date-btn ${showTimePicker ? 'active' : ''}`} onClick={() => { setShowTimePicker(!showTimePicker); setShowCalendar(false); }}>
-                                    ⏱️ {dateParams.timeH}:{dateParams.timeM} {dateParams.timeAmpm}
-                                </button>
-                            </div>
-
-                            {showCalendar && (
-                                <div className="custom-calendar popup">
-                                    <div className="cal-header">
-                                        <button type="button" className="cal-header-btn" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))}>&lt;</button>
-                                        <span>{calMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
-                                        <button type="button" className="cal-header-btn" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))}>&gt;</button>
-                                    </div>
-                                    <div className="cal-grid">
-                                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={`dn-${i}`} className="cal-day-name">{d}</div>)}
-                                        {Array(firstDayOfMonth(calMonth.getFullYear(), calMonth.getMonth())).fill(null).map((_, i) => <div key={`b-${i}`} className="cal-blank" />)}
-                                        {Array.from({ length: daysInMonth(calMonth.getFullYear(), calMonth.getMonth()) }, (_, i) => i + 1).map(d => {
-                                            const currentDate = new Date(calMonth.getFullYear(), calMonth.getMonth(), d);
-                                            const isSelected = selectedDate.toDateString() === currentDate.toDateString();
-                                            return (
-                                                <div
-                                                    key={d}
-                                                    className={`cal-day ${isSelected ? 'selected' : ''}`}
-                                                    onClick={() => { setSelectedDate(currentDate); setShowCalendar(false); }}
-                                                >
-                                                    {d}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {showTimePicker && (
-                                <div className="custom-time-picker popup">
-                                    <div className="time-col">
-                                        <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeH: String((parseInt(p.timeH, 10) % 12) + 1).padStart(2, '0') }))}>▲</button>
-                                        <div className="time-val">{dateParams.timeH}</div>
-                                        <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeH: String((parseInt(p.timeH, 10) - 2 + 12) % 12 + 1).padStart(2, '0') }))}>▼</button>
-                                    </div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-muted)' }}>:</div>
-                                    <div className="time-col">
-                                        <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeM: String((parseInt(p.timeM, 10) + 5) % 60).padStart(2, '0') }))}>▲</button>
-                                        <div className="time-val">{dateParams.timeM}</div>
-                                        <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeM: String((parseInt(p.timeM, 10) - 5 + 60) % 60).padStart(2, '0') }))}>▼</button>
-                                    </div>
-                                    <div className="time-col" style={{ marginLeft: '10px' }}>
-                                        <button type="button" className="time-ampm-btn" onClick={() => setDateParams(p => ({ ...p, timeAmpm: p.timeAmpm === 'AM' ? 'PM' : 'AM' }))}>{dateParams.timeAmpm}</button>
-                                    </div>
-                                </div>
-                            )}
-
-                            <label className="date-input-label">Where?</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                placeholder="e.g. Central Park Cafe"
-                                value={dateParams.place}
-                                onChange={e => setDateParams({ ...dateParams, place: e.target.value })}
-                                style={{ marginBottom: '14px' }}
-                                required
-                            />
-
-                            <label className="date-input-label">The Pitch (Convince them!)</label>
-                            <textarea
-                                className="input-field date-textarea"
-                                placeholder="I make a mean cup of coffee..."
-                                value={dateParams.description}
-                                onChange={e => setDateParams({ ...dateParams, description: e.target.value })}
-                                required
-                            />
-
-                            <button type="submit" className="btn-primary" style={{ marginTop: '15px' }}>Send Invite</button>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* ═══ Relation Status Declaration Modal ═══ */}
-            {showStatusModal && (
-                <div className="settings-modal-overlay" onClick={() => setShowStatusModal(false)}>
-                    <div className="settings-modal" onClick={e => e.stopPropagation()}>
-                        <div className="settings-header" style={{ marginBottom: '15px' }}>
-                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '1.5rem' }}>💕</span> Declare Status
-                            </h3>
-                            <button className="btn-close" onClick={() => setShowStatusModal(false)}>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                            </button>
-                        </div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '15px' }}>Select the new relationship status you want to propose for this match.</p>
-                        <form onSubmit={(e) => {
-                            e.preventDefault();
-                            handleSendStatusDeclaration();
-                        }}>
-                            <select
-                                className="input-field"
-                                value={statusType}
-                                onChange={e => setStatusType(e.target.value)}
-                                style={{ marginBottom: '14px', width: '100%' }}
-                            >
-                                <option value="Dating">Dating</option>
-                                <option value="Couple">Couple</option>
-                                <option value="Friends with Benefits">Friends with Benefits</option>
-                                <option value="Break Up">Break Up</option>
-                            </select>
-
-                            <button type="submit" className="btn-primary" style={{ marginTop: '15px', background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>Send Declaration</button>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* ═══ Roadmap Modal ═══ */}
-            {showRoadmap && (
-                <div className="roadmap-modal-overlay" onClick={() => setShowRoadmap(false)}>
-                    <div className="roadmap-modal" onClick={e => e.stopPropagation()}>
-                        <div className="settings-header" style={{ marginBottom: '20px' }}>
-                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '1.5rem' }}>📸</span> Memories
-                            </h3>
-                            <button className="btn-close" onClick={() => setShowRoadmap(false)}>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                            </button>
-                        </div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '25px' }}>Look back on your journey.</p>
-
-                        {renderGraph()}
-                    </div>
-                </div>
-            )}
-
-            {/* ═══ End Match Confirmation Modal ═══ */}
-            {showEndConfirm && (
-                <div className="end-match-overlay" onClick={() => { if (!endingMatch) setShowEndConfirm(false); }}>
-                    <div className="end-match-modal" onClick={e => e.stopPropagation()}>
-                        <div className="end-match-icon">💔</div>
-                        <h2 className="end-match-title">End This Match?</h2>
-                        <p className="end-match-desc">
-                            This will permanently delete the entire conversation and all messages.
-                            <strong> Both you and {conversation.other_username} will be notified</strong> and redirected.
-                        </p>
-                        <div className="end-match-actions">
-                            <button
-                                className="end-match-cancel"
-                                onClick={() => setShowEndConfirm(false)}
-                                disabled={endingMatch}
-                            >
-                                Keep Chatting
-                            </button>
-                            <button
-                                className="end-match-confirm"
-                                onClick={handleEndChat}
-                                disabled={endingMatch}
-                            >
-                                {endingMatch ? (
-                                    <><span className="end-match-spinner" /> Ending...</>
-                                ) : (
-                                    '💔 End Match'
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ═══ Match Ended Toast (shown to the OTHER user) ═══ */}
-            {matchEndedToast && (
-                <div className="match-ended-toast">
-                    <span className="match-ended-toast-icon">💔</span>
-                    <div>
-                        <p className="match-ended-toast-title">Match Ended</p>
-                        <p className="match-ended-toast-sub">{conversation.other_username} ended the match. Redirecting...</p>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

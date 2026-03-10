@@ -1,22 +1,154 @@
-.chat-page-wrapper {
+/* ── Chat Layout (sidebar + chat area) ── */
+.chat-layout {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: calc(100vh - 100px);
-    width: 100%;
-    padding: 20px 0;
-    box-sizing: border-box;
-    overflow-y: auto;
+    align-items: flex-start;
+    width: calc(100% + 5vw);
+    height: calc(100vh - 70px);
+    position: relative;
+    overflow: hidden;
 }
 
-.chat-container {
+/* ── Sidebar — always visible, fixed to viewport left ── */
+.chat-sidebar {
+    position: fixed !important;
+    /* (100vh - 80vh) / 2 = 10vh top center point. + navbar height half offset */
+    top: calc(10vh + 35px) !important;
+    /* Exactly 5% left margin to match the logo boundary in the 90% wide nav container */
+    left: 5% !important;
+    bottom: 0 !important;
+    width: 240px !important;
+    z-index: 200 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: transparent !important;
+}
+
+/* Global scrollbar remove — extreme right window scrollbar */
+body {
+    overflow: hidden !important;
+}
+
+.chat-sidebar-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    flex: 1;
+}
+
+.chat-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.18s ease;
+    border-radius: 12px;
+    margin: 2px 8px 2px 0;
+    /* Removed left margin to align with logo boundary */
+}
+
+.chat-sidebar-item:hover {
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.07));
+}
+
+.chat-sidebar-item--active {
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.18), rgba(236, 72, 153, 0.12));
+    border: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+.chat-sidebar-item--active:hover {
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.25), rgba(236, 72, 153, 0.18));
+}
+
+.chat-sidebar-avatar {
+    position: relative;
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+}
+
+.chat-sidebar-item--active .chat-sidebar-avatar {
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.5);
+    border-radius: 50%;
+}
+
+.chat-sidebar-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.chat-sidebar-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--accent-gradient);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 800;
+    border-radius: 10px;
+    padding: 1px 5px;
+    min-width: 18px;
+    text-align: center;
+    line-height: 1.6;
+    box-shadow: 0 2px 6px rgba(236, 72, 153, 0.5);
+}
+
+.chat-sidebar-info {
     display: flex;
     flex-direction: column;
-    height: 80vh;
-    width: 100%;
-    box-sizing: border-box;
-    max-width: 800px;
-    position: relative;
+    gap: 3px;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.chat-sidebar-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-sidebar-item--active .chat-sidebar-name {
+    color: #c084fc;
+}
+
+.chat-sidebar-status {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Chat page wrapper (offset to leave room for sidebar at 5% + sidebar width) ── */
+.chat-page-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    /* Forces expansion from left to right only */
+    flex: 1 !important;
+    height: 100% !important;
+    padding: 16px 87px 16px calc(4vw + 240px + 2rem) !important;
+    box-sizing: border-box !important;
+}
+
+
+.chat-container {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 80vh !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    max-width: none !important;
+    /* Removes the 800px/1100px limits to allow growth to the 95% right margin */
+    position: relative !important;
     background: var(--card-bg);
     color: var(--text-main);
     backdrop-filter: var(--backdrop-filter);
@@ -399,6 +531,216 @@
     border: 1px solid var(--border-color);
     width: fit-content;
     max-width: 100%;
+}
+
+/* ── Telegram-style Emoji Only Messages ── */
+@keyframes emojiJump {
+    0% {
+        opacity: 0;
+        transform: translateY(50px) scale(0.5);
+    }
+
+    7% {
+        opacity: 1;
+        transform: translateY(0) scale(1.2, 0.8);
+    }
+
+    15% {
+        transform: translateY(-60px) scale(0.9, 1.1);
+    }
+
+    25% {
+        transform: translateY(0) scale(1.1, 0.9);
+    }
+
+    33% {
+        transform: translateY(-30px) scale(0.95, 1.05);
+    }
+
+    41% {
+        transform: translateY(0) scale(1.05, 0.95);
+    }
+
+    47% {
+        transform: translateY(-10px) scale(0.98, 1.02);
+    }
+
+    52% {
+        transform: translateY(0) scale(1.02, 0.98);
+    }
+
+    57% {
+        transform: translateY(-3px) scale(1);
+    }
+
+    60%,
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.message-wrapper.mine .message-bubble.emoji-only,
+.message-wrapper.theirs .message-bubble.emoji-only {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 4.5rem !important;
+    padding: 0 5px !important;
+    line-height: 1.1;
+    margin: 2px 0;
+    transform-origin: bottom center;
+}
+
+/* ── Emotion-Specific Emoji Animations ── */
+.message-wrapper .message-bubble.emoji-only.anim-happy {
+    animation: emojiJump 2s cubic-bezier(0.28, 0.84, 0.42, 1) forwards !important;
+}
+
+.message-wrapper .message-bubble.emoji-only.anim-sad {
+    animation: emojiTearDown 2.5s ease-in-out forwards !important;
+}
+
+@keyframes emojiTearDown {
+    0% {
+        transform: scale(0.5) translateY(-20px);
+        opacity: 0;
+    }
+
+    20% {
+        transform: scale(1.1) translateY(0px);
+        opacity: 1;
+    }
+
+    40% {
+        transform: scale(1) translateY(10px);
+    }
+
+    60% {
+        transform: scale(1) translateY(5px);
+    }
+
+    80%,
+    100% {
+        transform: scale(1) translateY(0px);
+        opacity: 1;
+    }
+}
+
+.message-wrapper .message-bubble.emoji-only.anim-angry {
+    animation: emojiAngryShake 1s cubic-bezier(.36, .07, .19, .97) forwards !important;
+    transform-origin: center center;
+}
+
+@keyframes emojiAngryShake {
+    0% {
+        transform: scale(0) rotate(0);
+        opacity: 0;
+    }
+
+    15% {
+        transform: scale(1.2) rotate(0);
+        opacity: 1;
+    }
+
+    25% {
+        transform: scale(1.2) rotate(-10deg);
+    }
+
+    35% {
+        transform: scale(1.2) rotate(10deg);
+    }
+
+    45% {
+        transform: scale(1.2) rotate(-10deg);
+    }
+
+    55% {
+        transform: scale(1.2) rotate(10deg);
+    }
+
+    65% {
+        transform: scale(1.2) rotate(-10deg);
+    }
+
+    80% {
+        transform: scale(1) rotate(0deg);
+    }
+
+    100% {
+        transform: scale(1) rotate(0);
+        opacity: 1;
+    }
+}
+
+.message-wrapper .message-bubble.emoji-only.anim-surprise {
+    animation: emojiSurprise 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+    transform-origin: center center;
+}
+
+@keyframes emojiSurprise {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    15% {
+        transform: scale(1.5);
+        opacity: 1;
+    }
+
+    40% {
+        transform: scale(0.9);
+    }
+
+    60% {
+        transform: scale(1.1);
+    }
+
+    80%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.message-wrapper .message-bubble.emoji-only.anim-wobble {
+    animation: emojiWobble 2s ease forwards !important;
+    transform-origin: center center;
+}
+
+@keyframes emojiWobble {
+    0% {
+        transform: scale(0.5);
+        opacity: 0;
+    }
+
+    15% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    30% {
+        transform: rotate(-5deg);
+    }
+
+    45% {
+        transform: rotate(5deg);
+    }
+
+    60% {
+        transform: rotate(-3deg);
+    }
+
+    75% {
+        transform: rotate(3deg);
+    }
+
+    90%,
+    100% {
+        transform: rotate(0);
+        opacity: 1;
+    }
 }
 
 .chat-input-form {
