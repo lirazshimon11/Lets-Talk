@@ -1,0 +1,292 @@
+
+
+.mobile-viewport {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    /* This padding accounts for the bottom tab bar */
+    padding-bottom: 70px; 
+}
+
+.mobile-viewport.no-tab-bar {
+    padding-bottom: 20px !important; /* give a bit of clearance for home indicator */
+}
+
+/* Scrollbar inside the mobile frame */
+.mobile-viewport::-webkit-scrollbar {
+    width: 4px;
+}
+.mobile-viewport::-webkit-scrollbar-track {
+    background: transparent;
+}
+.mobile-viewport::-webkit-scrollbar-thumb {
+    background: rgba(168, 85, 247, 0.5);
+    border-radius: 4px;
+}
+
+/* Bottom Tab Bar (mobile only) */
+.mobile-tab-bar {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    height: 65px;
+    background: var(--navbar-bg);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-radius: 0 0 38px 38px; /* match screen bottom corners */
+    z-index: 10;
+}
+
+.mobile-tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    gap: 4px;
+    transition: color 0.2s;
+}
+
+.mobile-tab-item svg {
+    transition: transform 0.2s;
+}
+
+.mobile-tab-item:hover {
+    color: var(--text-main);
+}
+
+.mobile-tab-item.active {
+    color: #EC4899;
+}
+
+.mobile-tab-item.active svg {
+    transform: scale(1.1);
+}
+
+
+
+/* Since our mobile mode is an overlay over the actual page, we need to hide the page's scrollbar */
+html.mobile-mode {
+    overflow: hidden !important;
+}
+
+body.mobile-mode {
+    overflow: hidden !important;
+}
+
+
+
+/* =========================================================
+   PAGE SPECIFIC MOBILE OVERRIDES
+   ========================================================= */
+
+/* CHAT PAGE */
+html.mobile-mode .chat-sidebar {
+    display: none !important;
+}
+
+html.mobile-mode .chat-page-wrapper {
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+html.mobile-mode .chat-layout {
+    width: 100% !important;
+    height: 100% !important; /* Restore to 100% so it hits the very bottom */
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+html.mobile-mode .chat-container {
+    height: 100% !important;
+    min-height: 100% !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+html.mobile-mode .messages-container {
+    padding: 20px 15px 15px !important;
+}
+
+/* CHATS PAGE (LIST) */
+html.mobile-mode .chats-container {
+    padding: 15px !important;
+}
+
+html.mobile-mode .chat-list-item {
+    padding: 15px !important;
+}
+
+html.mobile-mode .chat-avatar {
+    width: 45px !important;
+    height: 45px !important;
+    margin-right: 15px !important;
+}
+
+html.mobile-mode .chat-info h4 {
+    font-size: 1.1rem !important;
+}
+
+html.mobile-mode .btn-why-match {
+    padding: 6px 10px !important;
+    font-size: 0.75rem !important;
+}
+
+/* HOME PAGE */
+html.mobile-mode .search-btn,
+html.mobile-mode .preloader-wrapper {
+    width: 200px !important;
+    height: 200px !important;
+}
+
+html.mobile-mode .search-btn {
+    font-size: 1.2rem !important;
+}
+
+/* SETTINGS PAGE */
+html.mobile-mode .spage-container {
+    margin: 0 auto 30px !important;
+    padding: 40px 10px 0 !important; /* Top padding for notch */
+}
+
+html.mobile-mode .spage-card {
+    padding: 15px 12px !important;
+    gap: 12px !important;
+}
+
+html.mobile-mode .spage-card-icon {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 10px !important;
+}
+
+html.mobile-mode .spage-card-title {
+    font-size: 0.9rem !important;
+}
+
+html.mobile-mode .spage-card-desc {
+    font-size: 0.75rem !important;
+}
+
+html.mobile-mode .spage-badge {
+    font-size: 0.6rem !important;
+    padding: 2px 6px !important;
+}
+
+html.mobile-mode .spage-header h1 {
+    font-size: 1.5rem !important;
+}
+
+/* PROFILE PAGE */
+html.mobile-mode .profile-page-wrap {
+    margin: 0 0 30px !important;
+    padding: 40px 10px 0 !important; /* Top padding for notch */
+}
+
+html.mobile-mode .profile-page-header h2 {
+    font-size: 1.5rem !important;
+}
+
+html.mobile-mode .profile-section-card {
+    padding: 15px !important;
+}
+
+html.mobile-mode .profile-layout {
+    grid-template-columns: 1fr !important;
+    gap: 15px !important;
+}
+
+html.mobile-mode .profile-viewer {
+    height: 300px !important;
+}
+
+html.mobile-mode .q-row {
+    flex-wrap: wrap !important;
+}
+
+html.mobile-mode .q-options {
+    flex-wrap: wrap !important;
+}
+
+/* GLOBAL MOBILE FIXES */
+html.mobile-mode .main-content-wrapper {
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+}
+
+/* === GLOBAL MOBILE SCROLLBAR HIDING ===
+   Hide scrollbars everywhere in mobile mode by default.
+   Chat messages container and auth/preferences pages are excluded below. */
+html.mobile-mode *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+html.mobile-mode * {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+
+/* Re-enable scrollbar for chat messages container */
+/* Re-enable scrollbar for chat messages container */
+html.mobile-mode .messages-container::-webkit-scrollbar {
+    display: block !important;
+    width: 8px !important;
+    background: none !important;
+}
+html.mobile-mode .messages-container {
+    scrollbar-width: thin !important;
+    scrollbar-color: #EC4899 transparent !important; /* Forces transparent track in Firefox/Edge */
+    -ms-overflow-style: auto !important;
+    background: transparent !important;
+    overflow-x: hidden !important;
+}
+html.mobile-mode .messages-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #EC4899, #a855f7) !important;
+    border-radius: 10px !important;
+    border: none !important;
+}
+html.mobile-mode .messages-container::-webkit-scrollbar-track,
+html.mobile-mode .messages-container::-webkit-scrollbar-track-piece,
+html.mobile-mode .messages-container::-webkit-scrollbar-button,
+html.mobile-mode .messages-container::-webkit-scrollbar-corner {
+    background: none !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    display: none !important; /* Suppress native arrows */
+}
+
+/* Re-enable thin scrollbar for auth/preferences form pages */
+html.mobile-mode .auth-box::-webkit-scrollbar,
+html.mobile-mode .preferences-container::-webkit-scrollbar {
+    display: block !important;
+    width: 4px !important;
+}
+html.mobile-mode .auth-box,
+html.mobile-mode .preferences-container {
+    scrollbar-width: thin !important;
+    scrollbar-color: #EC4899 transparent !important;
+    -ms-overflow-style: auto !important;
+}
+
+html.mobile-mode .mobile-viewport > div {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}

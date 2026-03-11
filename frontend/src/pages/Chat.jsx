@@ -39,6 +39,9 @@ export default function Chat() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [allConversations, setAllConversations] = useState([]);
     const [showRevealAnim, setShowRevealAnim] = useState(false);
+    const [selectedImgIndex, setSelectedImgIndex] = useState(0);
+    const swipeUpTimerRef = useRef(null);
+    const touchStartPosRef = useRef(null);
 
     // New Features State
     const [replyTo, setReplyTo] = useState(null);
@@ -47,6 +50,12 @@ export default function Chat() {
     const [fullPickerMsgId, setFullPickerMsgId] = useState(null);
     const [reactionDetailsId, setReactionDetailsId] = useState(null);
     const messageRefs = useRef({});
+
+    const isRevealed = conversation?.status === 'revealed';
+    const displayImage = isRevealed ? (conversation?.other_profile_image || 'https://via.placeholder.com/150') : null;
+    const allImages = isRevealed
+        ? (conversation?.other_profile_images?.length ? conversation.other_profile_images : [displayImage])
+        : [];
 
     // Date Invite State
     const [showDateModal, setShowDateModal] = useState(false);
@@ -67,30 +76,11 @@ export default function Chat() {
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [statusType, setStatusType] = useState('Dating');
-    const [showRoadmap, setShowRoadmap] = useState(false);
-
-    // Roadmap Graph State
-    const [graphScale, setGraphScale] = useState(1);
-    const [hoveredNode, setHoveredNode] = useState(null);
-    const graphContainerRef = useRef(null);
 
     const messagesEndRef = useRef(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const emojiPickerRef = useRef(null);
 
-    // Setup native wheel event for zooming explicitly with passive: false
-    useEffect(() => {
-        const el = graphContainerRef.current;
-        if (!el) return;
-        const handleWheelNative = (e) => {
-            e.preventDefault();
-            const zoomSensitivity = 0.002;
-            const delta = -e.deltaY * zoomSensitivity;
-            setGraphScale(s => Math.min(Math.max(0.1, s * (1 + delta)), 30));
-        };
-        el.addEventListener('wheel', handleWheelNative, { passive: false });
-        return () => el.removeEventListener('wheel', handleWheelNative);
-    }, [showRoadmap]);
     const inputRef = useRef(null);
 
     const [pickerStyle, setPickerStyle] = useState({ position: 'absolute', opacity: 0, pointerEvents: 'none' });
@@ -241,8 +231,8 @@ export default function Chat() {
                     .select(`
                         id, status, theme, message_count,
                         user1_id, user2_id,
-                        user1:profiles!conversations_user1_id_fkey(my_name, profile_image, my_avatar),
-                        user2:profiles!conversations_user2_id_fkey(my_name, profile_image, my_avatar)
+                        user1:profiles!conversations_user1_id_fkey(my_name, profile_image, profile_images, my_avatar),
+                        user2:profiles!conversations_user2_id_fkey(my_name, profile_image, profile_images, my_avatar)
                     `)
                     .order('created_at', { ascending: false });
                 if (error) throw error;
@@ -282,8 +272,8 @@ export default function Chat() {
                     .select(`
                         id, status, theme, message_count, created_at,
                         user1_id, user2_id,
-                        user1:profiles!conversations_user1_id_fkey(my_name, profile_image, my_avatar),
-                        user2:profiles!conversations_user2_id_fkey(my_name, profile_image, my_avatar)
+                        user1:profiles!conversations_user1_id_fkey(my_name, profile_image, profile_images, my_avatar),
+                        user2:profiles!conversations_user2_id_fkey(my_name, profile_image, profile_images, my_avatar)
                     `)
                     .eq('id', id)
                     .single();
@@ -407,6 +397,21 @@ export default function Chat() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, showEmojiPicker, fullPickerMsgId]);
 
+    // Sync chat background mood with body class for the mobile screen to inherit it
+    useEffect(() => {
+        const classes = Array.from(document.body.classList).filter(c => c.startsWith('chat-bg-'));
+        classes.forEach(c => document.body.classList.remove(c));
+        
+        if (chatBg && chatBg !== 'none') {
+            document.body.classList.add(`chat-bg-${chatBg}`);
+        }
+        
+        return () => {
+            const classesOnCleanup = Array.from(document.body.classList).filter(c => c.startsWith('chat-bg-'));
+            classesOnCleanup.forEach(c => document.body.classList.remove(c));
+        };
+    }, [chatBg]);
+
     const handleSend = async (e) => {
         e.preventDefault();
         if (!text.trim()) return;
@@ -434,6 +439,56 @@ export default function Chat() {
             status: newCount >= threshold ? 'revealed' : conversation.status
         }).eq('id', id);
     };
+
+    // Long Swipe Up to open profile (Telegram style)
+    useEffect(() => {
+        const container = document.querySelector('.chat-page-wrapper');
+        if (!container) return;
+
+        const handleTouchStart = (e) => {
+            touchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            // Clear any existing timer
+            if (swipeUpTimerRef.current) clearTimeout(swipeUpTimerRef.current);
+            
+            swipeUpTimerRef.current = setTimeout(() => {
+                // If after 2s we are still in a "swipe up and hold" state, trigger gallery
+                if (touchStartPosRef.current && isRevealed && allImages.length > 0) {
+                    setSelectedImgIndex(0);
+                    setSelectedImg(allImages[0]);
+                }
+            }, 2000);
+        };
+
+        const handleTouchMove = (e) => {
+            if (!touchStartPosRef.current) return;
+            const dy = touchStartPosRef.current.y - e.touches[0].clientY;
+            const dx = Math.abs(touchStartPosRef.current.x - e.touches[0].clientX);
+            
+            // If they swipe too far horizontally or swipe DOWN, cancel.
+            // A "swipe up" should be mostly vertical and positive dy.
+            if (dy < -10 || dx > 50) {
+                if (swipeUpTimerRef.current) clearTimeout(swipeUpTimerRef.current);
+                swipeUpTimerRef.current = null;
+            }
+        };
+
+        const handleTouchEnd = () => {
+            if (swipeUpTimerRef.current) clearTimeout(swipeUpTimerRef.current);
+            swipeUpTimerRef.current = null;
+            touchStartPosRef.current = null;
+        };
+
+        container.addEventListener('touchstart', handleTouchStart, { passive: true });
+        container.addEventListener('touchmove', handleTouchMove, { passive: true });
+        container.addEventListener('touchend', handleTouchEnd);
+        
+        return () => {
+            container.removeEventListener('touchstart', handleTouchStart);
+            container.removeEventListener('touchmove', handleTouchMove);
+            container.removeEventListener('touchend', handleTouchEnd);
+            if (swipeUpTimerRef.current) clearTimeout(swipeUpTimerRef.current);
+        };
+    }, [isRevealed, threshold]);
 
     const handleSendDateInvite = async () => {
         if (!selectedDate || !dateParams.place || !dateParams.description) return;
@@ -564,171 +619,6 @@ export default function Chat() {
 
     if (loading) return <HeartLoader />;
 
-    const isRevealed = conversation.status === 'revealed';
-    const displayImage = isRevealed ? (conversation.other_profile_image || 'https://via.placeholder.com/150') : null;
-    const allImages = isRevealed
-        ? (conversation.other_profile_images?.length ? conversation.other_profile_images : [displayImage])
-        : [];
-
-    const getRoadmapEvents = () => {
-        if (!conversation) return { events: [], dateCount: 0 };
-        const events = [];
-        events.push({ time: new Date(conversation.created_at).getTime(), label: 'Match', y: 0 });
-
-        const senderIds = new Set();
-        let chattingAdded = false;
-        let dateCount = 0;
-        let currentY = 0;
-
-        messages.forEach(m => {
-            const t = new Date(m.created_at).getTime();
-            if (!m.text.startsWith('[')) {
-                if (!chattingAdded) {
-                    senderIds.add(m.sender_id);
-                    if (senderIds.size >= 2) {
-                        currentY = 1;
-                        events.push({ time: t, label: 'Chatting', y: currentY });
-                        chattingAdded = true;
-                    }
-                }
-            } else if (m.text.startsWith('[DATE_INVITE]')) {
-                try {
-                    const d = JSON.parse(m.text.replace('[DATE_INVITE]', ''));
-                    if (d.status === 'accepted') {
-                        dateCount++;
-                        currentY = 1 + dateCount;
-                        let lbl = dateCount === 1 ? 'First Date' : dateCount === 2 ? 'Second Date' : dateCount === 3 ? 'Third Date' : 'Dating';
-                        events.push({ time: t, label: lbl, y: currentY });
-                    }
-                } catch (e) { }
-            } else if (m.text.startsWith('[STATUS_DECLARATION]')) {
-                try {
-                    const d = JSON.parse(m.text.replace('[STATUS_DECLARATION]', ''));
-                    if (d.status === 'accepted') {
-                        if (d.declaration === 'Break Up') {
-                            currentY = 0;
-                            events.push({ time: t, label: 'Break Up', y: currentY });
-                        } else {
-                            currentY = 1 + dateCount + 2;
-                            events.push({ time: t, label: d.declaration, y: currentY });
-                        }
-                    }
-                } catch (e) { }
-            }
-        });
-        return { events, dateCount };
-    };
-
-    const { events, dateCount } = getRoadmapEvents();
-
-    const renderGraph = () => {
-        if (events.length === 0) return null;
-        const minTime = events[0].time;
-        const maxTime = Math.max(Date.now(), events[events.length - 1].time + 1000 * 60 * 60);
-        // Reduce minimum span to 1 hour so closer events naturally have more separated space initially
-        const timeSpan = Math.max(maxTime - minTime, 1000 * 60 * 60);
-
-        const maxY = Math.max(10, ...events.map(e => e.y));
-        const minY = 0;
-
-        const baseWidth = 1400; // wide base prevents squishing too fast initially
-        const baseHeight = 450;
-        const padding = 80;
-
-        // Coordinates strictly dependent on state to fluidly allow native zooming/panning
-        const getX = (t) => padding + ((t - minTime) / timeSpan) * (baseWidth - 2 * padding) * graphScale;
-        const getY = (y) => baseHeight - padding - ((y - minY) / Math.max(1, maxY - minY)) * (baseHeight - 2 * padding) * graphScale;
-
-        const points = events.map(e => `${getX(e.time)},${getY(e.y)}`).join(' ');
-
-        return (
-            <div
-                ref={graphContainerRef}
-                className="roadmap-interactive-container"
-                style={{
-                    width: '100%', height: '500px', background: 'var(--input-bg)', borderRadius: '16px',
-                    position: 'relative', overflow: 'hidden',
-                    userSelect: 'none'
-                }}
-            >
-                <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0 }}>
-                    <defs>
-                        <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#ec4899" />
-                            <stop offset="100%" stopColor="#a855f7" />
-                        </linearGradient>
-                        <filter id="glow">
-                            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                            <feMerge>
-                                <feMergeNode in="coloredBlur" />
-                                <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                        </filter>
-                    </defs>
-
-                    {/* The Axes */}
-                    <line x1={padding} y1={getY(minY)} x2={getX(maxTime) + padding * graphScale} y2={getY(minY)} stroke="var(--border-color)" strokeWidth="3" />
-                    <line x1={getX(minTime)} y1={getY(minY)} x2={getX(minTime)} y2={getY(maxY) - padding * graphScale} stroke="var(--border-color)" strokeWidth="3" />
-
-                    {/* The connecting lines */}
-                    <polyline points={points} fill="none" stroke="url(#lineGradient)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-
-                    {events.map((e, i) => {
-                        const cx = getX(e.time);
-                        const cy = getY(e.y);
-                        const isHovered = hoveredNode === i;
-
-                        return (
-                            <g
-                                key={i}
-                                onMouseEnter={() => setHoveredNode(i)}
-                                onMouseLeave={() => setHoveredNode(null)}
-                                style={{ transition: 'all 0.2s ease', cursor: 'pointer' }}
-                            >
-                                <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={isHovered ? "16" : "10"}
-                                    fill={isHovered ? "#ec4899" : "#a855f7"}
-                                    stroke="var(--card-bg)"
-                                    strokeWidth={isHovered ? "4" : "3"}
-                                    filter={isHovered ? "url(#glow)" : ""}
-                                    style={{ transition: 'r 0.2s, fill 0.2s' }}
-                                />
-
-                                <text
-                                    x={cx}
-                                    y={cy - (isHovered ? 30 : 22)}
-                                    fill="var(--text-main)"
-                                    fontSize={isHovered ? "18" : "14"}
-                                    textAnchor="middle"
-                                    fontWeight="900"
-                                    style={{ pointerEvents: 'none', transition: 'all 0.2s' }}
-                                >
-                                    {e.label}
-                                </text>
-
-                                <text
-                                    x={cx}
-                                    y={cy - (isHovered ? 52 : 40)}
-                                    fill="var(--text-muted)"
-                                    fontSize={isHovered ? "14" : "11"}
-                                    textAnchor="middle"
-                                    style={{ pointerEvents: 'none', transition: 'all 0.2s' }}
-                                >
-                                    {new Date(e.time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                                </text>
-                            </g>
-                        );
-                    })}
-                </svg>
-                <div style={{ position: 'absolute', bottom: 12, right: 16, fontSize: '0.9rem', color: 'var(--text-muted)', pointerEvents: 'none', fontWeight: 600, background: 'rgba(0,0,0,0.5)', padding: '6px 12px', borderRadius: '10px' }}>
-                    Scroll to Zoom In/Out
-                </div>
-            </div>
-        );
-    };
-
     return (
         <div className="chat-layout">
             {/* ── Sidebar — always visible ── */}
@@ -793,7 +683,7 @@ export default function Chat() {
                         <div className="header-left">
                             <button onClick={(e) => { e.stopPropagation(); navigate('/chats'); }} className="btn-back">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-                                Back
+                                <span className="desktop-text">Back</span>
                             </button>
                         </div>
                         <div className="header-center" style={{ cursor: 'pointer' }} onClick={() => setShowSettings(true)}>
@@ -806,11 +696,10 @@ export default function Chat() {
                             <span className="header-username">{conversation.other_username}</span>
                         </div>
                         <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <button className="btn-why-match" onClick={(e) => { e.stopPropagation(); setShowRoadmap(true); }} style={{ margin: '0', padding: '6px 12px', fontSize: '0.75rem', borderRadius: '16px', background: 'rgba(168, 85, 247, 0.2)', color: '#a855f7' }}>
-                                Memories
-                            </button>
-                            <button className="btn-why-match" onClick={(e) => { e.stopPropagation(); handleShowCompatibility(e); }} style={{ margin: '0', padding: '6px 16px', fontSize: '0.75rem', borderRadius: '16px' }}>
-                                Why We Matched
+
+                            <button className="btn-why-match" onClick={(e) => { e.stopPropagation(); handleShowCompatibility(e); }} style={{ margin: '0', padding: '6px 16px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Why We Matched">
+                                <svg className="mobile-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'none' }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
+                                <span className="desktop-text" style={{ fontSize: '0.75rem' }}>Why We Matched</span>
                             </button>
                         </div>
                     </header>
@@ -1109,7 +998,7 @@ export default function Chat() {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    <div className="chat-input-wrapper" style={{ padding: '0 20px 20px', position: 'relative' }}>
+                    <div className="chat-input-wrapper" style={{ padding: '0 20px 8px', position: 'relative' }}>
 
                         {/* Replying To Banner */}
                         {replyTo && (
@@ -1282,7 +1171,7 @@ export default function Chat() {
                                                 alt={conversation.other_username}
                                                 className="uni-hero-img"
                                                 style={{ cursor: 'pointer' }}
-                                                onClick={() => setSelectedImg(allImages[heroSlide] || displayImage)}
+                                                onClick={() => { setSelectedImgIndex(heroSlide); setSelectedImg(allImages[heroSlide]); }}
                                             />
                                             {/* Prev / Next arrows */}
                                             {allImages.length > 1 && (
@@ -1325,7 +1214,9 @@ export default function Chat() {
                                         <span className="uni-hero-status">{isRevealed ? '🔓 Revealed' : '🔒 Mystery mode'}</span>
                                     </div>
                                     <button className="uni-close" onClick={() => setShowSettings(false)}>
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '24px', height: '24px' }}>
+                                            <path d="M5 12h14M13 5l7 7-7 7" />
+                                        </svg>
                                     </button>
                                 </div>
 
@@ -1472,7 +1363,11 @@ export default function Chat() {
                     )}
                 </div>
                 {/* Fullscreen Image Overlay */}
-                <FullscreenImage src={selectedImg} onClose={() => setSelectedImg(null)} />
+                <FullscreenImage 
+                    images={selectedImg ? allImages : null} 
+                    initialIndex={selectedImgIndex} 
+                    onClose={() => setSelectedImg(null)} 
+                />
 
                 {/* ═══ Suggest a Date Modal ═══ */}
                 {showDateModal && (
@@ -1607,24 +1502,7 @@ export default function Chat() {
                     </div>
                 )}
 
-                {/* ═══ Roadmap Modal ═══ */}
-                {showRoadmap && (
-                    <div className="roadmap-modal-overlay" onClick={() => setShowRoadmap(false)}>
-                        <div className="roadmap-modal" onClick={e => e.stopPropagation()}>
-                            <div className="settings-header" style={{ marginBottom: '20px' }}>
-                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '1.5rem' }}>📸</span> Memories
-                                </h3>
-                                <button className="btn-close" onClick={() => setShowRoadmap(false)}>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                                </button>
-                            </div>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '25px' }}>Look back on your journey.</p>
 
-                            {renderGraph()}
-                        </div>
-                    </div>
-                )}
 
                 {/* ═══ End Match Confirmation Modal ═══ */}
                 {showEndConfirm && (

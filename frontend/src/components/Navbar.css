@@ -207,3 +207,37 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 20px var(--accent-shadow);
 }
+
+/* Mobile Feature Styles */
+.btn-mobile-toggle {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.btn-mobile-toggle:hover {
+    transform: rotate(-10deg) scale(1.1);
+    border-color: var(--glass-border);
+    background: var(--card-bg);
+}
+
+.btn-mobile-toggle.active {
+    background: var(--accent-gradient);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 12px var(--accent-shadow);
+}
+
+/* When in mobile mode, the physical navbar isn't needed - it's replaced by the bottom tab bar */
+html.mobile-mode .navbar {
+    display: none !important;
+}

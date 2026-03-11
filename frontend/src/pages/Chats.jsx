@@ -120,7 +120,10 @@ export default function Chats() {
                                             </h4>
                                             <p>{conv.status === 'revealed' ? 'Profiles revealed!' : 'Mystery chat active'}</p>
                                         </div>
-                                        <button className="btn-why-match" onClick={(e) => handleShowCompatibility(e, conv.id)}>Why?</button>
+                                        <button className="btn-why-match" onClick={(e) => handleShowCompatibility(e, conv.id)} title="Why We Matched" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <svg className="mobile-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'none' }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
+                                            <span className="desktop-text">Why?</span>
+                                        </button>
                                     </div>
                                 </li>
                             ))}

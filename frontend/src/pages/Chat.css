@@ -8,6 +8,11 @@
     overflow: hidden;
 }
 
+html.mobile-mode .chat-layout {
+    width: 100% !important;
+    overflow-x: hidden !important;
+}
+
 /* ── Sidebar — always visible, fixed to viewport left ── */
 .chat-sidebar {
     position: fixed !important;
@@ -139,6 +144,11 @@ body:has(.chat-layout) {
     box-sizing: border-box !important;
 }
 
+html.mobile-mode .chat-page-wrapper {
+    padding: 0 !important;
+    align-items: stretch !important;
+}
+
 
 .chat-container {
     display: flex !important;
@@ -159,6 +169,14 @@ body:has(.chat-layout) {
     transition: background 0.5s ease, color 0.5s ease;
     overflow: hidden;
     animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+html.mobile-mode .chat-container {
+    height: 100% !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
 }
 
 /* Reveal Animation Overlay */
@@ -367,6 +385,14 @@ body:has(.chat-layout) {
     transition: background 0.2s;
 }
 
+html.mobile-mode .chat-header {
+    padding-top: 45px !important;
+    /* Camera notch clearance */
+    padding-bottom: 10px !important;
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+}
+
 .chat-header:hover {
     background: rgba(255, 255, 255, 0.08);
 }
@@ -415,6 +441,45 @@ body:has(.chat-layout) {
     line-height: 1;
 }
 
+html.mobile-mode .header-left {
+    flex: 0 0 auto;
+}
+
+html.mobile-mode .header-center {
+    flex: 1;
+    justify-content: flex-start;
+    padding-left: 10px;
+}
+
+html.mobile-mode .header-center .header-username {
+    font-size: 1.1rem !important;
+    /* Slightly smaller text for mobile header */
+}
+
+html.mobile-mode .header-right {
+    flex: 0 0 auto;
+}
+
+html.mobile-mode .desktop-text {
+    display: none !important;
+}
+
+html.mobile-mode .mobile-icon {
+    display: block !important;
+}
+
+html.mobile-mode .btn-back {
+    padding-left: 0;
+}
+
+html.mobile-mode .btn-why-match {
+    padding: 8px !important;
+    /* Make it a circular icon button */
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+}
+
 .chat-profile-placeholder {
     width: 45px;
     height: 45px;
@@ -445,7 +510,8 @@ body:has(.chat-layout) {
     top: 80px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 5;
+    z-index: 100;
+    /* Increased z-index to stay above header/chat */
     padding: 6px 16px;
     background: var(--input-bg);
     border: 1px solid var(--border-color);
@@ -454,6 +520,15 @@ body:has(.chat-layout) {
     font-size: 0.85rem;
     font-weight: 800;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+html.mobile-mode .chat-reveal-banner {
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    margin: 15px auto 10px auto !important;
+    width: 85% !important;
 }
 
 .revealed-text {
@@ -476,6 +551,10 @@ body:has(.chat-layout) {
     flex-direction: column;
     gap: 15px;
     scroll-behavior: smooth;
+}
+
+html.mobile-mode .messages-container {
+    padding: 35px 12px 15px !important;
 }
 
 
@@ -590,6 +669,11 @@ body:has(.chat-layout) {
     line-height: 1.1;
     margin: 2px 0;
     transform-origin: bottom center;
+}
+
+html.mobile-mode .message-wrapper.mine .message-bubble.emoji-only,
+html.mobile-mode .message-wrapper.theirs .message-bubble.emoji-only {
+    font-size: 3rem !important;
 }
 
 /* ── Emotion-Specific Emoji Animations ── */
@@ -753,15 +837,39 @@ body:has(.chat-layout) {
     border-top: 1px solid var(--border-color);
 }
 
+html.mobile-mode .chat-input-form {
+    padding: 6px 8px !important;
+    gap: 0 !important;
+    border-top: none !important;
+    align-items: center !important;
+    margin-bottom: 0px !important;
+    border-radius: 28px !important;
+    min-height: 50px !important;
+}
+
+html.mobile-mode .chat-action-btn {
+    padding: 4px !important;
+    margin: 0 !important;
+}
+
+html.mobile-mode .emoji-trigger-btn {
+    padding: 0 4px 0 2px !important;
+    /* Extremely tight padding to stick them together and push to left */
+    margin: 0 !important;
+    transform: scale(0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .chat-input {
     flex: 1;
-    background-color: var(--input-bg);
+    background: var(--input-bg);
     border: 1px solid var(--border-color);
-    border-radius: 30px;
-    color: var(--text-main);
     padding: 14px 20px;
-    outline: none;
-    font-size: 1rem;
+    border-radius: 24px;
+    color: var(--text-main);
+    font-size: 0.95rem;
     font-family: inherit;
     transition: all 0.3s ease;
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
@@ -770,6 +878,12 @@ body:has(.chat-layout) {
 .chat-input:focus {
     border-color: #EC4899;
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02), 0 0 0 4px rgba(236, 72, 153, 0.1);
+}
+
+html.mobile-mode .chat-input {
+    padding: 10px 48px 10px 16px !important;
+    /* Make room on the right for the floating send button */
+    font-size: 0.95rem !important;
 }
 
 .chat-send-btn {
@@ -787,6 +901,20 @@ body:has(.chat-layout) {
     justify-content: center;
     box-shadow: 0 4px 12px var(--accent-shadow);
     transition: transform 0.2s;
+}
+
+html.mobile-mode .chat-send-btn {
+    position: absolute !important;
+    right: 14px !important;
+    /* Center it vertically relative to the input form. 
+       Since min-height is 50px, and padding is 6px 8px, we can use top/transform */
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    height: 38px !important;
+    width: 38px !important;
+    font-size: 0.9rem !important;
+    margin: 0 !important;
+    z-index: 10 !important;
 }
 
 .chat-send-btn:hover {
@@ -1230,6 +1358,37 @@ body:has(.chat-layout) {
     animation: fadeIn 0.3s ease;
 }
 
+html.mobile-mode .settings-modal-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+}
+
+html.mobile-mode .roadmap-modal-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+}
+
+html.mobile-mode .navbar {
+    display: none !important;
+}
+
+html.mobile-mode .chat-page-wrapper {
+    padding: 0 !important;
+    align-items: stretch !important;
+    background: transparent !important;
+    height: 100% !important;
+}
+
 .settings-modal {
     background: var(--card-bg);
     backdrop-filter: blur(30px) saturate(200%);
@@ -1245,6 +1404,111 @@ body:has(.chat-layout) {
     animation: modalPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+html.mobile-mode .settings-modal {
+    padding: 15px !important;
+    height: 95vh !important;
+    max-height: 95vh !important;
+    width: 95% !important;
+    max-width: none !important;
+    border-radius: 20px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    /* completely prevent horizontal scrolling */
+    display: flex;
+    flex-direction: column;
+}
+
+html.mobile-mode .settings-modal::-webkit-scrollbar {
+    width: 0px !important;
+    /* Hide scrollbar visually but keep function */
+}
+
+/* Compatibility Modal (Why We Matched) modern redesign */
+html.mobile-mode .compatibility-modal {
+    width: 88% !important;
+    max-width: 310px !important;
+    height: auto !important;
+    max-height: 85vh !important;
+    padding: 24px 20px !important;
+    border-radius: 30px !important;
+    background: var(--card-bg) !important;
+    backdrop-filter: blur(40px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+    border: 1px solid var(--glass-border) !important;
+    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6) !important;
+    margin: auto !important;
+    /* Center in the flex overlay */
+}
+
+/* Fix table header overlapping in compatibility modal on mobile */
+html.mobile-mode .compatibility-modal .comp-header {
+    display: grid !important;
+    grid-template-columns: 0.8fr 1.1fr 1.1fr !important;
+    gap: 4px !important;
+    padding: 10px 8px !important;
+    font-size: 0.6rem !important;
+    text-align: center;
+    line-height: 1.2;
+}
+
+html.mobile-mode .compatibility-modal .comp-row {
+    display: grid !important;
+    grid-template-columns: 0.8fr 1.1fr 1.1fr !important;
+    gap: 4px !important;
+    padding: 12px 8px !important;
+    font-size: 0.8rem !important;
+    align-items: center;
+}
+
+html.mobile-mode .compatibility-modal .comp-col {
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+html.mobile-mode .compatibility-modal .comp-col.label {
+    text-align: left;
+}
+
+html.mobile-mode .compatibility-modal .settings-header {
+    border: none !important;
+    margin-bottom: 20px !important;
+    padding: 0 !important;
+}
+
+html.mobile-mode .compatibility-modal .settings-header h3 {
+    font-size: 1.25rem !important;
+    width: 100%;
+    justify-content: center;
+}
+
+html.mobile-mode .compatibility-modal .btn-close {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    background: rgba(125, 125, 125, 0.1) !important;
+    /* Subtle circle */
+    border: none !important;
+    color: var(--text-main) !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50% !important;
+    box-shadow: none !important;
+    z-index: 100 !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+html.mobile-mode .compatibility-modal .btn-close:hover {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #ef4444 !important;
+    transform: scale(1.1) !important;
+}
+
 @keyframes modalPop {
     to {
         transform: translateY(0);
@@ -1258,6 +1522,11 @@ body:has(.chat-layout) {
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 15px;
     margin-bottom: 25px;
+}
+
+html.mobile-mode .settings-header {
+    padding-bottom: 10px !important;
+    margin-bottom: 15px !important;
 }
 
 .settings-header h3 {
@@ -1283,7 +1552,7 @@ body:has(.chat-layout) {
 
 .btn-close:hover {
     background: #dc2626;
-    transform: scale(1.1) rotate(90deg);
+    transform: scale(1.1);
 }
 
 .btn-close svg {
@@ -1295,6 +1564,18 @@ body:has(.chat-layout) {
     gap: 15px;
     justify-content: center;
     margin: 15px 0 25px;
+    flex-wrap: wrap;
+    /* allow wrapping on small screens */
+}
+
+html.mobile-mode .theme-swatches {
+    gap: 8px !important;
+    margin: 10px 0 15px !important;
+}
+
+html.mobile-mode .theme-swatch {
+    width: 40px !important;
+    height: 40px !important;
 }
 
 .theme-swatch {
@@ -1386,6 +1667,12 @@ body:has(.chat-layout) {
     margin: 10px 0 20px;
 }
 
+html.mobile-mode .bg-swatches {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 6px !important;
+    margin: 5px 0 15px !important;
+}
+
 .bg-swatch-wrap {
     display: flex;
     flex-direction: column;
@@ -1399,6 +1686,14 @@ body:has(.chat-layout) {
     border-radius: 14px;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
+    width: 100%;
+    /* Force grid sizing */
+    max-width: 52px;
+}
+
+html.mobile-mode .bg-swatch {
+    height: 40px !important;
+    border-radius: 10px !important;
 }
 
 .bg-swatch:hover {
@@ -2170,6 +2465,12 @@ body.chat-bg-arctic {
     justify-content: center;
 }
 
+html.mobile-mode .uni-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 1000 !important;
+}
+
 .uni-panel {
     width: 90%;
     max-width: 480px;
@@ -2181,6 +2482,26 @@ body.chat-bg-arctic {
     animation: modalPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     display: flex;
     flex-direction: column;
+}
+
+html.mobile-mode .uni-panel {
+    width: 100% !important;
+    max-width: none !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    overflow-x: hidden !important;
+    background: var(--bg-color) !important;
+    /* Match the app and chat theme background */
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 1001 !important;
+}
+
+html.mobile-mode .uni-panel::-webkit-scrollbar {
+    width: 0 !important;
+    display: none !important;
 }
 
 .uni-panel::-webkit-scrollbar {
@@ -2211,6 +2532,28 @@ body.chat-bg-arctic {
     border-radius: 32px 32px 0 0;
     overflow: hidden;
     background: var(--input-bg);
+}
+
+html.mobile-mode .uni-hero {
+    height: 260px !important;
+    /* Tall hero like Telegram */
+    border-radius: 0 !important;
+    /* Extend to panel edges */
+    margin: -1px;
+    /* Cover top of panel exactly */
+    width: calc(100% + 2px) !important;
+}
+
+/* Push the close button below the notch in mobile */
+html.mobile-mode .uni-close {
+    top: 25px !important;
+    /* Avoid camera notch */
+    right: 14px !important;
+}
+
+/* Notch-safe space above the name overlay */
+html.mobile-mode .uni-hero-overlay {
+    padding: 20px 15px 12px !important;
 }
 
 .uni-hero-img {
@@ -2344,6 +2687,10 @@ body.chat-bg-arctic {
     gap: 2px;
 }
 
+html.mobile-mode .uni-hero-overlay {
+    padding: 20px 15px 10px !important;
+}
+
 .uni-hero-name {
     margin: 0;
     font-size: 1.35rem;
@@ -2360,25 +2707,25 @@ body.chat-bg-arctic {
 
 .uni-close {
     position: absolute;
-    top: 14px;
+    top: 10px;
     right: 14px;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     border: none;
-    background: #ef4444;
+    background: transparent;
     color: white;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+    z-index: 100;
 }
 
 .uni-close:hover {
-    background: #dc2626;
-    transform: scale(1.1) rotate(90deg);
+    transform: scale(1.15) translateX(4px);
+    color: #EC4899;
 }
 
 .uni-close svg {
@@ -2392,6 +2739,10 @@ body.chat-bg-arctic {
     justify-content: space-around;
     padding: 18px 16px;
     border-bottom: 1px solid var(--border-color);
+}
+
+html.mobile-mode .uni-stats {
+    padding: 12px 10px !important;
 }
 
 .uni-stat {
@@ -2426,6 +2777,12 @@ body.chat-bg-arctic {
     padding: 20px 20px 0;
 }
 
+html.mobile-mode .uni-section {
+    padding: 10px 15px 0 !important;
+    overflow: visible !important;
+    /* Let active box-shadow on swatches show on all sides */
+}
+
 .uni-section-label {
     margin: 0 0 12px;
     font-size: 0.72rem;
@@ -2441,11 +2798,28 @@ body.chat-bg-arctic {
     margin: 20px 20px 0;
 }
 
+html.mobile-mode .uni-divider {
+    margin: 10px 15px 0 !important;
+}
+
 /* Bubble themes */
 .uni-themes {
     display: flex;
     gap: 16px;
     padding-bottom: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+html.mobile-mode .uni-themes {
+    gap: 6px !important;
+    padding: 8px 4px 6px !important;
+    /* Top padding prevents active ring from being clipped */
+    flex-wrap: nowrap !important;
+    /* Force single row */
+    overflow-x: hidden !important;
+    justify-content: space-between !important;
+    /* Space evenly across width */
 }
 
 .uni-theme-item {
@@ -2461,6 +2835,23 @@ body.chat-bg-arctic {
     border-radius: 16px;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
+}
+
+html.mobile-mode .uni-theme-swatch {
+    width: 36px !important;
+    /* Smaller to fit all 7 in one row */
+    height: 36px !important;
+    border-radius: 10px !important;
+}
+
+html.mobile-mode .uni-theme-item {
+    gap: 3px !important;
+    /* Tighter label gap */
+}
+
+html.mobile-mode .uni-swatch-label {
+    font-size: 0.58rem !important;
+    /* Tiny label */
 }
 
 .uni-theme-swatch:hover {
@@ -2479,6 +2870,16 @@ body.chat-bg-arctic {
     padding-bottom: 4px;
 }
 
+html.mobile-mode .uni-bg-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8px !important;
+    padding: 4px 4px 6px !important;
+    /* Padding so active ring isn't clipped */
+    overflow: visible !important;
+    /* Let active box-shadow breathe */
+}
+
 .uni-bg-item {
     display: flex;
     flex-direction: column;
@@ -2492,6 +2893,13 @@ body.chat-bg-arctic {
     border-radius: 16px;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
+}
+
+html.mobile-mode .uni-bg-swatch {
+    width: 100% !important;
+    /* Fill the 4-column grid cell */
+    height: 50px !important;
+    border-radius: 10px !important;
 }
 
 .uni-bg-swatch:hover {
@@ -2577,6 +2985,11 @@ body.chat-bg-arctic {
     flex-direction: column;
     gap: 10px;
     padding-bottom: 32px;
+}
+
+html.mobile-mode .uni-danger {
+    padding: 12px 15px 20px !important;
+    gap: 8px !important;
 }
 
 .uni-danger-btn {
@@ -3174,6 +3587,20 @@ body.chat-bg-arctic {
     z-index: 2000;
 }
 
+html.mobile-mode .roadmap-interactive-container {
+    height: 340px !important;
+}
+
+html.mobile-mode .roadmap-modal-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+}
+
 .roadmap-modal {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
@@ -3184,4 +3611,43 @@ body.chat-bg-arctic {
     max-height: 90vh;
     overflow-y: auto;
     backdrop-filter: blur(20px);
+}
+
+html.mobile-mode .roadmap-modal {
+    width: 92% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: 85vh !important;
+    padding: 24px 20px !important;
+    border-radius: 30px !important;
+    background: var(--card-bg) !important;
+    backdrop-filter: blur(40px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+    border: 1px solid var(--glass-border) !important;
+    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6) !important;
+    position: relative !important;
+    transform: none !important;
+}
+
+html.mobile-mode .roadmap-modal .btn-close {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    background: rgba(125, 125, 125, 0.1) !important;
+    border: none !important;
+    color: var(--text-main) !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50% !important;
+    box-shadow: none !important;
+    z-index: 100 !important;
+}
+
+html.mobile-mode .roadmap-modal .btn-close:hover {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #ef4444 !important;
 }

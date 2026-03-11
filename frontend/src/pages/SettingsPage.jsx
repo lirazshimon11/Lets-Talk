@@ -60,13 +60,29 @@ const SETTINGS_SECTIONS = [
 ];
 
 export default function SettingsPage() {
+    const toggleTheme = () => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('app-theme', 'light');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('app-theme', 'dark');
+        }
+    };
+
     return (
         <div className="spage-container">
-            <div className="spage-header">
-                <h1 className="brand-title" style={{ fontSize: '2rem', margin: 0 }}>Settings</h1>
-                <p style={{ color: 'var(--text-muted)', margin: '6px 0 0', fontSize: '0.95rem' }}>
-                    Manage your account, preferences and privacy
-                </p>
+            <div className="spage-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 className="brand-title" style={{ fontSize: '2rem', margin: 0 }}>Settings</h1>
+                    <p style={{ color: 'var(--text-muted)', margin: '6px 0 0', fontSize: '0.95rem' }}>
+                        Manage your account, preferences and privacy
+                    </p>
+                </div>
+                <button onClick={toggleTheme} className="btn-theme-toggle" title="Toggle Theme" style={{ scale: '0.9' }}>
+                    {document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙'}
+                </button>
             </div>
 
             <div className="spage-grid">

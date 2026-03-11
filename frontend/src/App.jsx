@@ -14,6 +14,8 @@ import Navbar from './components/Navbar';
 import PersonalInfo from './pages/PersonalInfo';
 import Chats from './pages/Chats';
 import HeartLoader from './components/HeartLoader';
+import { MobileProvider } from './contexts/MobileContext';
+import MobileFrame from './components/MobileFrame';
 
 const ProtectedRoute = ({ children, session }) => {
   if (!session) return <Navigate to="/login" replace />;
@@ -50,12 +52,12 @@ const ProfileMustGuard = ({ children, session }) => {
 
 const WithNavbar = ({ children, session }) => {
   return (
-    <>
+    <MobileFrame>
       <Navbar session={session} />
       <div style={{ width: '80%', margin: '0 auto' }}>
         {children}
       </div>
-    </>
+    </MobileFrame>
   );
 };
 
@@ -113,20 +115,22 @@ export default function App() {
   }
 
   return (
-    <Router>
-      <Routes>
-        {/* If user is logged in, hide Login/Register pages and redirect to Home */}
-        <Route path="/login" element={session ? <Navigate to="/" replace /> : <WithNavbar session={session}><Login /></WithNavbar>} />
-        <Route path="/register" element={session ? <Navigate to="/" replace /> : <WithNavbar session={session}><Register /></WithNavbar>} />
+    <MobileProvider>
+      <Router>
+        <Routes>
+          {/* If user is logged in, hide Login/Register pages and redirect to Home */}
+          <Route path="/login" element={session ? <Navigate to="/" replace /> : <WithNavbar session={session}><Login /></WithNavbar>} />
+          <Route path="/register" element={session ? <Navigate to="/" replace /> : <WithNavbar session={session}><Register /></WithNavbar>} />
 
-        <Route path="/upload-photos" element={<ProtectedRoute session={session}><WithNavbar session={session}><PhotoUpload /></WithNavbar></ProtectedRoute>} />
-        <Route path="/preferences" element={<ProtectedRoute session={session}><WithNavbar session={session}><Preferences /></WithNavbar></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><SettingsPage /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
-        <Route path="/" element={session ? <ProfileMustGuard session={session}><WithNavbar session={session}><Home /></WithNavbar></ProfileMustGuard> : <WithNavbar session={session}><Landing /></WithNavbar>} />
-        <Route path="/chats" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><Chats /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><PersonalInfo /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
-        <Route path="/chat/:id" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><Chat /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
-      </Routes>
-    </Router>
+          <Route path="/upload-photos" element={<ProtectedRoute session={session}><WithNavbar session={session}><PhotoUpload /></WithNavbar></ProtectedRoute>} />
+          <Route path="/preferences" element={<ProtectedRoute session={session}><WithNavbar session={session}><Preferences /></WithNavbar></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><SettingsPage /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
+          <Route path="/" element={session ? <ProfileMustGuard session={session}><WithNavbar session={session}><Home /></WithNavbar></ProfileMustGuard> : <WithNavbar session={session}><Landing /></WithNavbar>} />
+          <Route path="/chats" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><Chats /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><PersonalInfo /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
+          <Route path="/chat/:id" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><Chat /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
+        </Routes>
+      </Router>
+    </MobileProvider>
   );
 }

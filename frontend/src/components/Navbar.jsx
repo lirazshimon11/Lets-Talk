@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import FullscreenImage from '../components/FullscreenImage';
 import './Navbar.css';
+import { useMobile } from '../contexts/MobileContext';
 
 export default function Navbar({ session }) {
     const { t } = useTranslation();
@@ -12,6 +13,7 @@ export default function Navbar({ session }) {
     const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'light');
     const [userProfile, setUserProfile] = useState({});
     const [selectedImg, setSelectedImg] = useState(null);
+    const { isMobileMode } = useMobile();
 
     useEffect(() => {
         const fetchProfile = () => {
@@ -75,6 +77,7 @@ export default function Navbar({ session }) {
                             <Link to="/settings" className={`nav-link ${isSettings ? 'active' : ''}`}>
                                 {t('nav_settings')}
                             </Link>
+
                             <button onClick={toggleTheme} className="btn-theme-toggle" title={t('nav_theme_toggle', 'Toggle Light/Dark Mode')}>
                                 {theme === 'light' ? '🌙' : '☀️'}
                             </button>
@@ -101,6 +104,7 @@ export default function Navbar({ session }) {
                         </>
                     ) : (
                         <>
+
                             <button onClick={toggleTheme} className="btn-theme-toggle" title={t('nav_theme_toggle', 'Toggle Light/Dark Mode')}>
                                 {theme === 'light' ? '🌙' : '☀️'}
                             </button>
