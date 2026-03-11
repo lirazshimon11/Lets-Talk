@@ -12,7 +12,7 @@
 }
 
 .mobile-viewport.no-tab-bar {
-    padding-bottom: 20px !important; /* give a bit of clearance for home indicator */
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important; /* iPhone notch clearance, otherwise 0 */
 }
 
 /* Scrollbar inside the mobile frame */

@@ -41,22 +41,6 @@ export function MobileProvider({ children }) {
 
     return (
         <MobileContext.Provider value={{ isMobileMode }}>
-            <div style={{
-                position: 'fixed',
-                top: 0, left: 0, right: 0,
-                backgroundColor: 'rgba(255, 0, 0, 0.85)',
-                color: '#fff',
-                zIndex: 9999999,
-                fontSize: '11px',
-                padding: '4px',
-                pointerEvents: 'none',
-                fontFamily: 'monospace',
-                wordBreak: 'break-all',
-                textAlign: 'left'
-            }}>
-                Mode: {isMobileMode ? 'MOBILE' : 'PC'} | W: {debugState.innerWidth}px | MobDev: {debugState.isMobileDevice ? 'Y' : 'N'} <br/>
-                UA: {debugState.userAgent.substring(0, 100)}...
-            </div>
             {children}
         </MobileContext.Provider>
     );
