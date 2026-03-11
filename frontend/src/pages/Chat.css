@@ -836,6 +836,49 @@ html.mobile-mode .message-wrapper.theirs .message-bubble.emoji-only {
     }
 }
 
+.chat-input-wrapper {
+    padding: 0 20px 8px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+html.mobile-mode .chat-input-wrapper {
+    padding: 0 12px 0px; 
+}
+
+/* Emoji Picker Popup */
+.popup-emoji-picker {
+    position: absolute;
+    bottom: 90px;
+    left: 70px;
+    z-index: 100;
+    width: 320px;
+    height: 400px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px var(--accent-shadow);
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    backdrop-filter: var(--backdrop-filter);
+}
+
+html.mobile-mode .popup-emoji-picker {
+    position: relative !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    height: 350px !important;
+    margin-top: 10px !important;
+    margin-bottom: env(safe-area-inset-bottom, 12px) !important;
+    border-radius: 20px !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    z-index: 100 !important;
+}
+
 .chat-input-form {
     display: flex;
     padding: 15px 20px;
@@ -1372,7 +1415,7 @@ html.mobile-mode .chat-send-btn {
 }
 
 html.mobile-mode .settings-modal-overlay {
-    position: absolute !important;
+    position: fixed !important;
     inset: 0 !important;
     z-index: 1000 !important;
     display: flex !important;
@@ -1382,7 +1425,7 @@ html.mobile-mode .settings-modal-overlay {
 }
 
 html.mobile-mode .roadmap-modal-overlay {
-    position: absolute !important;
+    position: fixed !important;
     inset: 0 !important;
     z-index: 1000 !important;
     display: flex !important;
@@ -2479,7 +2522,7 @@ body.chat-bg-arctic {
 }
 
 html.mobile-mode .uni-overlay {
-    position: absolute !important;
+    position: fixed !important;
     inset: 0 !important;
     z-index: 1000 !important;
 }
@@ -2506,7 +2549,7 @@ html.mobile-mode .uni-panel {
     overflow-x: hidden !important;
     background: var(--bg-color) !important;
     /* Match the app and chat theme background */
-    position: absolute !important;
+    position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     z-index: 1001 !important;

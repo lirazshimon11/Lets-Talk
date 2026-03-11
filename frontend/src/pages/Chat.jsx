@@ -1056,8 +1056,8 @@ export default function Chat() {
                                 <button type="button" className="action-menu-item" onClick={() => { setShowDateModal(true); setShowActionMenu(false); }}>
                                     📅 Suggest a Date
                                 </button>
-                                <button type="button" className="action-menu-item" disabled={dateCount < 2} onClick={() => { setShowStatusModal(true); setShowActionMenu(false); }}>
-                                    💕 Declare Status {dateCount < 2 ? '(Requires 2+ dates)' : ''}
+                                <button type="button" className="action-menu-item" disabled={false} onClick={() => { setShowStatusModal(true); setShowActionMenu(false); }}>
+                                    💕 Declare Status
                                 </button>
                             </div>
                         )}
@@ -1106,20 +1106,7 @@ export default function Chat() {
 
                         {/* Emoji picker panel - Popup style */}
                         {showEmojiPicker && !fullPickerMsgId && (
-                            <div ref={emojiPickerRef} className="popup-emoji-picker" style={{
-                                position: 'absolute',
-                                bottom: '90px',
-                                left: '70px',
-                                zIndex: 100,
-                                width: '320px',
-                                height: '400px',
-                                borderRadius: '20px',
-                                overflow: 'hidden',
-                                boxShadow: '0 10px 40px var(--accent-shadow)',
-                                border: '1px solid var(--border-color)',
-                                background: 'var(--card-bg)',
-                                backdropFilter: 'var(--backdrop-filter)'
-                            }}>
+                            <div ref={emojiPickerRef} className="popup-emoji-picker">
                                 <EmojiPicker
                                     onEmojiClick={handleEmojiClick}
                                     emojiStyle="apple"
