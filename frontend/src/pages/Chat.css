@@ -868,7 +868,7 @@ html.mobile-mode .popup-emoji-picker {
     bottom: auto !important;
     left: auto !important;
     width: 100% !important;
-    height: 350px !important;
+    height: 40vh !important;
     margin-top: 10px !important;
     margin-bottom: env(safe-area-inset-bottom, 12px) !important;
     border-radius: 20px !important;
@@ -1416,7 +1416,11 @@ html.mobile-mode .chat-send-btn {
 
 html.mobile-mode .settings-modal-overlay {
     position: fixed !important;
-    inset: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: auto !important;
     z-index: 1000 !important;
     display: flex !important;
     align-items: center !important;
@@ -1426,7 +1430,11 @@ html.mobile-mode .settings-modal-overlay {
 
 html.mobile-mode .roadmap-modal-overlay {
     position: fixed !important;
-    inset: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: auto !important;
     z-index: 1000 !important;
     display: flex !important;
     align-items: center !important;
@@ -2523,7 +2531,11 @@ body.chat-bg-arctic {
 
 html.mobile-mode .uni-overlay {
     position: fixed !important;
-    inset: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: auto !important;
     z-index: 1000 !important;
 }
 
@@ -2543,15 +2555,17 @@ html.mobile-mode .uni-overlay {
 html.mobile-mode .uni-panel {
     width: 100% !important;
     max-width: none !important;
-    height: 100% !important;
-    max-height: 100% !important;
     border-radius: 0 !important;
     overflow-x: hidden !important;
     background: var(--bg-color) !important;
     /* Match the app and chat theme background */
     position: fixed !important;
     top: 0 !important;
+    bottom: 0 !important;
     left: 0 !important;
+    right: 0 !important;
+    height: auto !important;
+    max-height: none !important;
     z-index: 1001 !important;
 }
 
