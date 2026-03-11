@@ -54,7 +54,7 @@ const WithNavbar = ({ children, session }) => {
   return (
     <MobileFrame>
       <Navbar session={session} />
-      <div style={{ width: '80%', margin: '0 auto' }}>
+      <div className="main-content-wrapper" style={{ width: '80%', margin: '0 auto' }}>
         {children}
       </div>
     </MobileFrame>

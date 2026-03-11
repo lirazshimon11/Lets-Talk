@@ -3,29 +3,27 @@ import { createContext, useState, useEffect, useContext } from 'react';
 const MobileContext = createContext();
 
 export function MobileProvider({ children }) {
-    const checkIsMobile = () => {
+    const checkIsMobileState = () => {
         const userAgent = navigator.userAgent || navigator.vendor || window.opera;
         const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
         const isSmallScreen = window.innerWidth <= 768;
-        
-        // It's a mobile view if it's a mobile device OR the screen is small
         const result = isMobileDevice || isSmallScreen;
 
-        console.log(`[Mobile Detection]
-- User Agent: ${userAgent}
-- Is Mobile Device (User Agent match): ${isMobileDevice}
-- Window Width: ${window.innerWidth}px
-- Is Small Screen (<= 768px): ${isSmallScreen}
--> Resulting Mode (Mobile View?): ${result}`);
-
-        return result;
+        return {
+            userAgent: userAgent,
+            isMobileDevice,
+            innerWidth: window.innerWidth,
+            isSmallScreen,
+            result
+        };
     };
 
-    const [isMobileMode, setIsMobileMode] = useState(checkIsMobile());
+    const [debugState, setDebugState] = useState(checkIsMobileState());
+    const isMobileMode = debugState.result;
 
     useEffect(() => {
         const handleResize = () => {
-            setIsMobileMode(checkIsMobile());
+            setDebugState(checkIsMobileState());
         };
 
         window.addEventListener('resize', handleResize);
@@ -43,6 +41,22 @@ export function MobileProvider({ children }) {
 
     return (
         <MobileContext.Provider value={{ isMobileMode }}>
+            <div style={{
+                position: 'fixed',
+                top: 0, left: 0, right: 0,
+                backgroundColor: 'rgba(255, 0, 0, 0.85)',
+                color: '#fff',
+                zIndex: 9999999,
+                fontSize: '11px',
+                padding: '4px',
+                pointerEvents: 'none',
+                fontFamily: 'monospace',
+                wordBreak: 'break-all',
+                textAlign: 'left'
+            }}>
+                Mode: {isMobileMode ? 'MOBILE' : 'PC'} | W: {debugState.innerWidth}px | MobDev: {debugState.isMobileDevice ? 'Y' : 'N'} <br/>
+                UA: {debugState.userAgent.substring(0, 100)}...
+            </div>
             {children}
         </MobileContext.Provider>
     );
