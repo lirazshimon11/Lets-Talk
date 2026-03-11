@@ -551,6 +551,7 @@ html.mobile-mode .chat-reveal-banner {
     flex-direction: column;
     gap: 15px;
     scroll-behavior: smooth;
+    direction: ltr !important; /* Force Left-To-Right layout for messages */
 }
 
 html.mobile-mode .messages-container {
@@ -579,6 +580,10 @@ html.mobile-mode .messages-container {
     word-wrap: break-word;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     animation: bubblePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    /* Allow text inside the bubble to dictate its own reading direction (e.g. Hebrew RTL) 
+       even though the parent container is forced LTR */
+    unicode-bidi: plaintext;
+    text-align: start; 
 }
 
 @keyframes bubblePop {
@@ -835,6 +840,7 @@ html.mobile-mode .message-wrapper.theirs .message-bubble.emoji-only {
     align-items: center;
     position: relative;
     border-top: 1px solid var(--border-color);
+    direction: ltr !important; /* Force layout: settings/emoji on left, send on right */
 }
 
 html.mobile-mode .chat-input-form {
@@ -874,6 +880,9 @@ html.mobile-mode .emoji-trigger-btn {
     font-family: inherit;
     transition: all 0.3s ease;
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+    /* Allow typing in RTL languages without breaking the LTR container */
+    unicode-bidi: plaintext;
+    text-align: start;
 }
 
 .chat-input:focus {
