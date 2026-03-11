@@ -147,6 +147,8 @@ body:has(.chat-layout) {
 html.mobile-mode .chat-page-wrapper {
     padding: 0 !important;
     align-items: stretch !important;
+    height: 100dvh !important; /* Force to exact device viewport height */
+    overflow: hidden !important; /* Stop any internal spilling */
 }
 
 
@@ -177,6 +179,9 @@ html.mobile-mode .chat-container {
     border: none !important;
     box-shadow: none !important;
     background: transparent !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
 }
 
 /* Reveal Animation Overlay */
@@ -386,9 +391,8 @@ html.mobile-mode .chat-container {
 }
 
 html.mobile-mode .chat-header {
-    padding-top: 45px !important;
-    /* Camera notch clearance */
-    padding-bottom: 10px !important;
+    padding-top: max(45px, env(safe-area-inset-top, 45px)) !important; /* Ensure clearing of physical phone notch */
+    padding-bottom: 15px !important;
     padding-left: 15px !important;
     padding-right: 15px !important;
 }
@@ -844,8 +848,8 @@ html.mobile-mode .message-wrapper.theirs .message-bubble.emoji-only {
 }
 
 html.mobile-mode .chat-input-form {
-    padding: 6px 8px !important;
-    padding-bottom: calc(6px + env(safe-area-inset-bottom, 12px)) !important; /* Lift input above iOS home bar */
+    padding: 8px 12px !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 12px)) !important; /* Lift input above iOS home bar with a bit of breathing room */
     gap: 0 !important;
     border-top: none !important;
     align-items: center !important;

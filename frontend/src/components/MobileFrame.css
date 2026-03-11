@@ -103,14 +103,15 @@ html.mobile-mode .chat-page-wrapper {
 
 html.mobile-mode .chat-layout {
     width: 100% !important;
-    height: 100% !important; /* Restore to 100% so it hits the very bottom */
+    height: 100dvh !important; /* Restore to 100dvh so it hits the very bottom exactly */
     padding: 0 !important;
     margin: 0 !important;
+    overflow: hidden !important;
 }
 
 html.mobile-mode .chat-container {
-    height: 100% !important;
-    min-height: 100% !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
     border-radius: 0 !important;
     border: none !important;
     box-shadow: none !important;
