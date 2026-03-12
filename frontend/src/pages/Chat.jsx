@@ -85,7 +85,63 @@ export default function Chat() {
 
     const [pickerStyle, setPickerStyle] = useState({ position: 'absolute', opacity: 0, pointerEvents: 'none' });
 
-    // Close emoji/reaction picker on outside click
+    useEffect(() => {
+        let prevHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
+        const handleResize = () => {
+            const viewportHeight = window.visualViewport 
+                ? window.visualViewport.height 
+                : window.innerHeight;
+            
+            const delta = prevHeight - viewportHeight;
+            
+            // Critical: Calculate if we are at the bottom BEFORE the browser starts reflowing the CSS!
+            const container = document.querySelector('.messages-container');
+            let wasAtBottom = false;
+            
+            if (container) {
+                // Generous 300px threshold allows them to be slightly scrolled up from the exact pixel bottom
+                wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 300;
+            }
+
+            document.documentElement.style.setProperty('--app-height', `${viewportHeight}px`);
+
+            // Screen shrank significantly (Keyboard Opened)
+            if (delta > 80 && wasAtBottom && container) {
+                // Instantly snap the scroll position in the same frame as the height update
+                // This removes any perceived "lag" during the keyboard animation
+                container.style.scrollBehavior = 'auto'; 
+                container.scrollTop = container.scrollHeight + 1000; 
+                
+                // Restore smooth scrolling slightly after the keyboard finishes
+                setTimeout(() => {
+                    container.style.scrollBehavior = ''; 
+                }, 300);
+            }
+            
+            prevHeight = viewportHeight;
+        };
+
+        // Run immediately
+        handleResize();
+
+        // Listen for standard resize
+        window.addEventListener('resize', handleResize);
+        
+        // Listen specifically to visual viewport changes (crucial for virtual keyboards)
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', handleResize);
+        }
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', handleResize);
+            }
+        };
+    }, []);
+
+    // Close popups on outside click
     useEffect(() => {
         const handler = (e) => {
             if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target) && !e.target.closest('.emoji-trigger-btn')) {
@@ -312,7 +368,6 @@ export default function Chat() {
                 setConversation(formattedConv);
                 setMessages(msgData || []);
                 setTheme(formattedConv.theme || 'default');
-                setThreshold(10);
                 setLoading(false);
             } catch (err) {
                 console.error('Chat fetch error:', err);
@@ -337,13 +392,12 @@ export default function Chat() {
                             return newArr;
                         });
 
-                        // Optimistic message count update
+                        // Check reveal conditions (hidden from users)
                         setConversation(prev => {
                             const newCount = prev.message_count + 1;
                             return {
                                 ...prev,
                                 message_count: newCount,
-                                status: newCount >= threshold ? 'revealed' : prev.status
                             };
                         });
                     } else if (payload.eventType === 'UPDATE') {
@@ -375,22 +429,51 @@ export default function Chat() {
     }, [id, loading, threshold, currentUser?.id]);
 
     useEffect(() => {
-        if (conversation) {
-            if (prevMsgCountRef.current !== null &&
-                prevMsgCountRef.current < threshold &&
-                conversation.message_count >= threshold) {
-                setShowRevealAnim(false);
-                setTimeout(() => {
-                    setShowRevealAnim(true);
-                    setTimeout(() => setShowRevealAnim(false), 6000);
-                }, 10);
+        if (conversation && currentUser && messages.length > 0) {
+            const otherId = conversation.user1_id === currentUser.id ? conversation.user2_id : conversation.user1_id;
+            
+            // Count messages per user
+            const myMsgCount = messages.filter(m => m.sender_id === currentUser.id).length;
+            const theirMsgCount = messages.filter(m => m.sender_id === otherId).length;
+            
+            // Check for mutual reactions:
+            // - currentUser has reacted to at least one of OTHER's messages
+            // - OTHER has reacted to at least one of currentUser's messages
+            const iHaveReacted = messages
+                .filter(m => m.sender_id === otherId && m.reactions)
+                .some(m => Object.values(m.reactions).some(uids => uids.includes(currentUser.id)));
+            
+            const theyHaveReacted = messages
+                .filter(m => m.sender_id === currentUser.id && m.reactions)
+                .some(m => Object.values(m.reactions).some(uids => uids.includes(otherId)));
+            
+            const conditionsMet = myMsgCount >= 15 && theirMsgCount >= 15 && iHaveReacted && theyHaveReacted;
+            
+            // Trigger reveal animation only if crossing the threshold for the first time
+            const wasAlreadyRevealed = conversation.status === 'revealed';
+            
+            if (conditionsMet && !wasAlreadyRevealed) {
+                // Update the conversation status to revealed
+                supabase.from('conversations').update({ status: 'revealed' }).eq('id', id).then(() => {
+                    setConversation(prev => ({ ...prev, status: 'revealed' }));
+                    setShowRevealAnim(false);
+                    setTimeout(() => {
+                        setShowRevealAnim(true);
+                        setTimeout(() => setShowRevealAnim(false), 6000);
+                    }, 10);
+                });
             }
-            prevMsgCountRef.current = conversation.message_count;
         }
-    }, [conversation?.message_count, threshold]);
+    }, [messages, conversation?.status, currentUser?.id, id]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        // Use container.scrollTop instead of scrollIntoView to avoid
+        // moving the entire viewport (which would jostle the keyboard on mobile)
+        const container = document.querySelector('.messages-container');
+        if (container) {
+            container.style.scrollBehavior = 'smooth';
+            container.scrollTop = container.scrollHeight;
+        }
     }, [messages, showEmojiPicker, fullPickerMsgId]);
 
     // Sync chat background mood with body class for the mobile screen to inherit it
@@ -431,11 +514,9 @@ export default function Chat() {
             text: msgText
         });
 
-        // Let PG Trigger or React optimistic update handle the count and reveal status
         const newCount = conversation.message_count + 1;
         await supabase.from('conversations').update({
-            message_count: newCount,
-            status: newCount >= threshold ? 'revealed' : conversation.status
+            message_count: newCount
         }).eq('id', id);
     };
 
@@ -474,8 +555,7 @@ export default function Chat() {
 
         const newCount = conversation.message_count + 1;
         await supabase.from('conversations').update({
-            message_count: newCount,
-            status: newCount >= threshold ? 'revealed' : conversation.status
+            message_count: newCount
         }).eq('id', id);
     };
 
@@ -507,8 +587,7 @@ export default function Chat() {
         if (!error) {
             const newCount = conversation.message_count + 1;
             await supabase.from('conversations').update({
-                message_count: newCount,
-                status: newCount >= threshold ? 'revealed' : conversation.status
+                message_count: newCount
             }).eq('id', id);
         }
     };
@@ -657,7 +736,7 @@ export default function Chat() {
 
                     {!isRevealed && (
                         <div className="chat-reveal-banner">
-                            <span className="mystery-text">Mystery Active: {conversation.message_count}/{threshold} messages until reveal</span>
+                            <span className="mystery-text">🔒 Mystery Mode — keep chatting to unlock profiles</span>
                         </div>
                     )}
 
@@ -1065,6 +1144,7 @@ export default function Chat() {
                                     e.target.style.height = 'auto';
                                     e.target.style.height = `${e.target.scrollHeight}px`;
                                 }}
+                                // Removed onFocus handler: the visual viewport resize event handles keyboard auto-scroll.
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
                                         e.preventDefault();
@@ -1087,7 +1167,10 @@ export default function Chat() {
                                     maxHeight: '120px' // Around 5 lines
                                 }}
                             />
-                            <button type="submit" className="chat-send-btn">
+                            <button type="submit" className="chat-send-btn" onMouseDown={(e) => e.preventDefault()} onTouchStart={(e) => {
+                                // On mobile, we also need touchstart to prevent focus loss
+                                // We don't preventDefault here because it breaks the click event
+                            }}>
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
                             </button>
                         </form>
@@ -1175,11 +1258,8 @@ export default function Chat() {
                                     ) : !isRevealed ? (
                                         <div className="uni-hero-mystery" style={{ background: 'var(--card-bg)' }}>
                                             <img src={conversation.other_avatar} alt="mystery avatar" style={{ width: '120px', height: '120px', borderRadius: '50%', marginBottom: '15px' }} />
-                                            <p className="uni-mystery-text">Photos unlock after {threshold} messages</p>
-                                            <div className="uni-mystery-bar">
-                                                <div className="uni-mystery-fill" style={{ width: `${Math.min(100, (conversation.message_count / threshold) * 100)}%` }} />
-                                            </div>
-                                            <p className="uni-mystery-count">{conversation.message_count} / {threshold}</p>
+                                            <p className="uni-mystery-text">🔒 Photos unlock as your connection deepens</p>
+                                            <p className="uni-mystery-text" style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '4px' }}>Keep chatting to discover each other</p>
                                         </div>
                                     ) : null}
 
@@ -1188,6 +1268,7 @@ export default function Chat() {
                                         <p className="uni-hero-name">{conversation.other_username}</p>
                                         <span className="uni-hero-status">{isRevealed ? '🔓 Revealed' : '🔒 Mystery mode'}</span>
                                     </div>
+                                    <div className="uni-top-gradient" />
                                     <button className="uni-close" onClick={() => setShowSettings(false)}>
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '24px', height: '24px' }}>
                                             <path d="M5 12h14M13 5l7 7-7 7" />

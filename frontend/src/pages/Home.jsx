@@ -40,8 +40,16 @@ export default function Home() {
         setSearching(true);
         setError('');
         setAnimateFail(false);
+
+        const minDelay = new Promise(resolve => setTimeout(resolve, 1500)); // one full heart cycle
+
         try {
-            const { data: conversationId, error: rpcError } = await supabase.rpc('match_user');
+            const [, result] = await Promise.all([
+                minDelay,
+                supabase.rpc('match_user')
+            ]);
+
+            const { data: conversationId, error: rpcError } = result;
 
             if (rpcError) {
                 throw new Error(rpcError.message);

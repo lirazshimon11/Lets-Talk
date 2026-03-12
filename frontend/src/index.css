@@ -46,6 +46,7 @@ body {
   transition: background-color 0.5s ease, color 0.5s ease;
   min-height: 100vh;
   position: relative;
+  -webkit-tap-highlight-color: transparent; /* Remove default mobile blue tap highlight */
 }
 
 /* Dynamic Animated Background Mesh - High Aesthetic */
