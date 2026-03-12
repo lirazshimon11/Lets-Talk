@@ -1,0 +1,34 @@
+.magic-cursor-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+    /* Deep in the background, interacting with orbs */
+    overflow: hidden;
+}
+
+/* Ethereal Light Bloom - Sophisticated magical feel */
+.ethereal-aura {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    /* Using a sophisticated pearlescent/gold/violet mix with low opacity */
+    background: radial-gradient(circle,
+            rgba(255, 255, 255, 0.08) 0%,
+            rgba(168, 85, 247, 0.05) 30%,
+            rgba(251, 146, 60, 0.03) 60%,
+            transparent 80%);
+    border-radius: 50%;
+    filter: blur(80px);
+    will-change: transform;
+    pointer-events: none;
+    mix-blend-mode: soft-light;
+    /* Much more subtle and premium than screen or color-dodge */
+    transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    /* Smooth lag for organic feel */
+}
+
+/* Remove all sparkle related CSS */

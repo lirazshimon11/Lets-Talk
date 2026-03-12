@@ -17,6 +17,7 @@ import HeartLoader from './components/HeartLoader';
 import { MobileProvider } from './contexts/MobileContext';
 import MobileFrame from './components/MobileFrame';
 
+
 const ProtectedRoute = ({ children, session }) => {
   if (!session) return <Navigate to="/login" replace />;
   return children;
@@ -80,11 +81,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // 1. Check for active session on load
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        // Validate session with server (catches manually deleted users)
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error || !user) {
           await supabase.auth.signOut();
@@ -97,16 +96,11 @@ export default function App() {
       }
       setAuthChecked(true);
     };
-
     checkAuth();
 
-    // 2. Listen for login/logout events
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -116,6 +110,18 @@ export default function App() {
 
   return (
     <MobileProvider>
+      <div className="mesh-orb-1" />
+      <div className="mesh-orb-2" />
+      <div className="mesh-orb-3" />
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="live-bg-video"
+      >
+        <source src="/LightModeLiveBackground3.mp4" type="video/mp4" />
+      </video>
       <Router>
         <Routes>
           {/* If user is logged in, hide Login/Register pages and redirect to Home */}
