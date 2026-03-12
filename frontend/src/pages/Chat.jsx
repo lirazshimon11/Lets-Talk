@@ -164,11 +164,7 @@ export default function Chat() {
             const start = input.selectionStart;
             const end = input.selectionEnd;
             setText(prev => prev.slice(0, start) + emoji + prev.slice(end));
-            // Restore cursor after emoji
-            setTimeout(() => {
-                input.focus();
-                input.setSelectionRange(start + emoji.length, start + emoji.length);
-            }, 0);
+            // Removed input.focus() and setSelectionRange to prevent native keyboard from opening on mobile
         } else {
             setText(prev => prev + emoji);
         }
@@ -424,6 +420,9 @@ export default function Chat() {
         }
 
         setText('');
+        if (inputRef.current) {
+            inputRef.current.style.height = 'auto'; // Reset height
+        }
         setShowEmojiPicker(false);
 
         await supabase.from('messages').insert({
@@ -440,55 +439,7 @@ export default function Chat() {
         }).eq('id', id);
     };
 
-    // Long Swipe Up to open profile (Telegram style)
-    useEffect(() => {
-        const container = document.querySelector('.chat-page-wrapper');
-        if (!container) return;
 
-        const handleTouchStart = (e) => {
-            touchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            // Clear any existing timer
-            if (swipeUpTimerRef.current) clearTimeout(swipeUpTimerRef.current);
-            
-            swipeUpTimerRef.current = setTimeout(() => {
-                // If after 2s we are still in a "swipe up and hold" state, trigger gallery
-                if (touchStartPosRef.current && isRevealed && allImages.length > 0) {
-                    setSelectedImgIndex(0);
-                    setSelectedImg(allImages[0]);
-                }
-            }, 2000);
-        };
-
-        const handleTouchMove = (e) => {
-            if (!touchStartPosRef.current) return;
-            const dy = touchStartPosRef.current.y - e.touches[0].clientY;
-            const dx = Math.abs(touchStartPosRef.current.x - e.touches[0].clientX);
-            
-            // If they swipe too far horizontally or swipe DOWN, cancel.
-            // A "swipe up" should be mostly vertical and positive dy.
-            if (dy < -10 || dx > 50) {
-                if (swipeUpTimerRef.current) clearTimeout(swipeUpTimerRef.current);
-                swipeUpTimerRef.current = null;
-            }
-        };
-
-        const handleTouchEnd = () => {
-            if (swipeUpTimerRef.current) clearTimeout(swipeUpTimerRef.current);
-            swipeUpTimerRef.current = null;
-            touchStartPosRef.current = null;
-        };
-
-        container.addEventListener('touchstart', handleTouchStart, { passive: true });
-        container.addEventListener('touchmove', handleTouchMove, { passive: true });
-        container.addEventListener('touchend', handleTouchEnd);
-        
-        return () => {
-            container.removeEventListener('touchstart', handleTouchStart);
-            container.removeEventListener('touchmove', handleTouchMove);
-            container.removeEventListener('touchend', handleTouchEnd);
-            if (swipeUpTimerRef.current) clearTimeout(swipeUpTimerRef.current);
-        };
-    }, [isRevealed, threshold]);
 
     const handleSendDateInvite = async () => {
         if (!selectedDate || !dateParams.place || !dateParams.description) return;
@@ -1075,29 +1026,66 @@ export default function Chat() {
                                 </svg>
                             </button>
 
-                            {/* Emoji button — soft SVG smiley */}
+                            {/* Emoji/Keyboard Toggle Button */}
                             <button
                                 type="button"
-                                onClick={() => setShowEmojiPicker(p => !p)}
+                                onClick={() => {
+                                    if (showEmojiPicker) {
+                                        // If currently showing emoji picker, clicking keyboard icon should close picker and focus input
+                                        setShowEmojiPicker(false);
+                                        setTimeout(() => inputRef.current?.focus(), 100);
+                                    } else {
+                                        // If currently typing, clicking smiley icon should open picker
+                                        setShowEmojiPicker(true);
+                                    }
+                                }}
                                 className="emoji-trigger-btn"
-                                title="Emoji"
+                                title={showEmojiPicker ? "Keyboard" : "Emoji"}
                             >
-                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="10" />
-                                    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                                    <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="2.5" strokeLinecap="round" />
-                                    <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="2.5" strokeLinecap="round" />
-                                </svg>
+                                {showEmojiPicker ? (
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
+                                        <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"></path>
+                                    </svg>
+                                ) : (
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                                        <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="2.5" strokeLinecap="round" />
+                                        <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="2.5" strokeLinecap="round" />
+                                    </svg>
+                                )}
                             </button>
 
-                            <input
+                            <textarea
                                 ref={inputRef}
-                                type="text"
                                 value={text}
                                 onChange={e => setText(e.target.value)}
+                                onInput={(e) => {
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = `${e.target.scrollHeight}px`;
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSend(e);
+                                    }
+                                }}
                                 placeholder="Message..."
                                 className="chat-input"
-                                style={{ border: 'none', background: 'transparent', boxShadow: 'none', flex: 1 }}
+                                rows={1}
+                                style={{ 
+                                    border: 'none', 
+                                    background: 'transparent', 
+                                    boxShadow: 'none', 
+                                    flex: 1,
+                                    resize: 'none',
+                                    overflowY: 'auto',
+                                    paddingTop: '12px',
+                                    paddingBottom: '12px',
+                                    minHeight: '24px',
+                                    maxHeight: '120px' // Around 5 lines
+                                }}
                             />
                             <button type="submit" className="chat-send-btn">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
@@ -1111,7 +1099,7 @@ export default function Chat() {
                                     onEmojiClick={handleEmojiClick}
                                     emojiStyle="apple"
                                     theme="dark"
-                                    searchDisabled={false}
+                                    searchDisabled={true}
                                     skinTonesDisabled={false}
                                     width="100%"
                                     height="100%"

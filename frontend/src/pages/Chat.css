@@ -894,11 +894,13 @@ html.mobile-mode .popup-emoji-picker {
 html.mobile-mode .chat-input-form {
     padding: 8px 12px !important;
     gap: 0 !important;
-    border-top: none !important;
-    align-items: center !important;
+    border: 1px solid var(--border-color) !important;
+    background: var(--input-bg) !important;
+    align-items: flex-end !important;
     margin-bottom: 0px !important;
-    border-radius: 28px !important;
+    border-radius: 24px !important;
     min-height: 50px !important;
+    transition: border-radius 0.2s;
 }
 
 html.mobile-mode .chat-action-btn {
@@ -909,7 +911,7 @@ html.mobile-mode .chat-action-btn {
 html.mobile-mode .emoji-trigger-btn {
     padding: 0 4px 0 2px !important;
     /* Extremely tight padding to stick them together and push to left */
-    margin: 0 !important;
+    margin: 0 0 6px 0 !important; /* Keep aligned to bottom when expanding */
     transform: scale(0.95);
     display: flex;
     align-items: center;
@@ -938,9 +940,19 @@ html.mobile-mode .emoji-trigger-btn {
 }
 
 html.mobile-mode .chat-input {
-    padding: 10px 48px 10px 16px !important;
-    /* Make room on the right for the floating send button */
+    padding: 10px 12px !important;
+    /* Normal padding, flexbox will naturally protect the send button */
     font-size: 0.95rem !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+html.mobile-mode .chat-input:focus {
+    box-shadow: none !important;
+    outline: none !important;
+    border: none !important;
+    background: transparent !important;
 }
 
 .chat-send-btn {
@@ -961,15 +973,12 @@ html.mobile-mode .chat-input {
 }
 
 html.mobile-mode .chat-send-btn {
-    position: absolute !important;
-    right: 14px !important;
-    /* Center it vertically relative to the input form, taking safe area into account */
-    top: calc(50% - (env(safe-area-inset-bottom, 12px) / 2)) !important;
-    transform: translateY(-50%) !important;
+    position: static !important;
     height: 38px !important;
     width: 38px !important;
+    flex-shrink: 0 !important; /* Never crush the button */
     font-size: 0.9rem !important;
-    margin: 0 !important;
+    margin: 0 4px 6px 0 !important; /* Bottom margin to align with flex-end */
     z-index: 10 !important;
 }
 
