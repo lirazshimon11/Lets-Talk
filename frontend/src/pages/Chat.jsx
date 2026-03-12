@@ -998,7 +998,7 @@ export default function Chat() {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    <div className="chat-input-wrapper" style={{ padding: '0 20px 8px', position: 'relative' }}>
+                    <div className="chat-input-wrapper">
 
                         {/* Replying To Banner */}
                         {replyTo && (

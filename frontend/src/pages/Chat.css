@@ -149,6 +149,7 @@ html.mobile-mode .chat-page-wrapper {
     align-items: stretch !important;
     height: 100dvh !important; /* Force to exact device viewport height */
     overflow: hidden !important; /* Stop any internal spilling */
+    background: var(--bg-color); /* Give the empty space above a natural background */
 }
 
 
@@ -391,7 +392,7 @@ html.mobile-mode .chat-container {
 }
 
 html.mobile-mode .chat-header {
-    padding-top: max(45px, env(safe-area-inset-top, 45px)) !important; /* Ensure clearing of physical phone notch */
+    padding-top: max(15px, env(safe-area-inset-top, 15px)) !important; /* Ensure clearing of physical phone notch */
     padding-bottom: 15px !important;
     padding-left: 15px !important;
     padding-right: 15px !important;
@@ -892,7 +893,6 @@ html.mobile-mode .popup-emoji-picker {
 
 html.mobile-mode .chat-input-form {
     padding: 8px 12px !important;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 12px)) !important; /* Lift input above iOS home bar with a bit of breathing room */
     gap: 0 !important;
     border-top: none !important;
     align-items: center !important;
