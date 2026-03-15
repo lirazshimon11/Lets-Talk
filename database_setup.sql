@@ -40,8 +40,17 @@ create table public.profiles (
 -- Set up Row Level Security (RLS)
 alter table public.profiles enable row level security;
 
-create policy "Public profiles are viewable by everyone." on profiles
-  for select using (true);
+-- Only allow users to see their own profile OR profiles of users they have an active match with.
+create policy "Profiles are visible only to matches" on profiles
+  for select using (
+    auth.uid() = id 
+    OR 
+    exists (
+      select 1 from public.conversations 
+      where (user1_id = auth.uid() and user2_id = profiles.id)
+      or (user2_id = auth.uid() and user1_id = profiles.id)
+    )
+  );
 
 create policy "Users can insert their own profile." on profiles
   for insert with check (auth.uid() = id);

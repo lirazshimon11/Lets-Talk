@@ -5,9 +5,11 @@ import { uploadImageFile, deleteImageFile } from '../lib/uploadImage';
 import { X, ChevronLeft, ChevronRight, Plus, Trash2, Copy, Check } from 'lucide-react';
 import CustomSelect from '../components/CustomSelect';
 import FullscreenImage from '../components/FullscreenImage';
+import { getSignedUrls } from '../lib/signedUrls';
 import './PhotoUpload.css';
 import './PersonalInfo.css';
 import HeartLoader from '../components/HeartLoader';
+
 
 const HAIR_OPTIONS = ['Blonde', 'Brunette', 'Black', 'Red', 'Gray', 'White', 'Bald', 'Dyed/Vibrant', 'Other'];
 const EYE_OPTIONS = ['Blue', 'Green', 'Brown', 'Hazel', 'Other'];
@@ -179,9 +181,11 @@ export default function PersonalInfo() {
     const [success, setSuccess] = useState('');
     const [editMode, setEditMode] = useState(false);
 
-    const [images, setImages] = useState([]);
-    const [imageIds, setImageIds] = useState([]); // parallel array of imgBB IDs for deletion
-    const [uploadingSlot, setUploadingSlot] = useState(null);
+    const [images, setImages] = useState([]); // Array of { url, path, file }
+    const [originalPaths, setOriginalPaths] = useState([]); // To track what to delete on save
+
+
+
     const [activeSlide, setActiveSlide] = useState(0);
     const fileInputRef = useRef(null);
     const pendingSlotRef = useRef(null);
@@ -225,8 +229,23 @@ export default function PersonalInfo() {
             const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
             if (error) throw error;
             if (data) {
-                setImages(data.profile_images || (data.profile_image ? [data.profile_image] : []));
-                setImageIds(data.profile_image_ids || []);
+                const paths = data.profile_images || (data.profile_image ? [data.profile_image] : []);
+                const signedUrlsMap = await getSignedUrls(paths);
+                
+                const initialImages = paths.map(p => ({
+                    url: signedUrlsMap[p] || p,
+                    path: p,
+                    file: null
+                }));
+
+                // Revoke old blob URLs to prevent memory leaks
+                images.forEach(img => {
+                    if (img.url && img.url.startsWith('blob:')) URL.revokeObjectURL(img.url);
+                });
+
+                setImages(initialImages);
+                setOriginalPaths(paths);
+                setActiveSlide(0);
                 setDetails({
                     my_name: data.my_name || '', my_country: data.my_country || 'US',
                     my_language: data.my_language || 'en', my_age: data.my_age || '',
@@ -236,6 +255,8 @@ export default function PersonalInfo() {
                     my_religion: data.my_religion || 'Other', my_avatar: data.my_avatar || AVATAR_OPTIONS[0],
                     questionnaire_answers: data.questionnaire_answers || {}
                 });
+
+
                 setPreferences({
                     match_gender: data.match_gender || 'Any', match_hair: data.match_hair || 'Any',
                     match_eyes: data.match_eyes || 'Any', match_ethnicity: data.match_ethnicity || 'Any',
@@ -253,19 +274,9 @@ export default function PersonalInfo() {
         finally { setLoading(false); }
     };
 
-    const saveImages = async (nextImages, nextImageIds) => {
-        setImages(nextImages);
-        setImageIds(nextImageIds);
-        setActiveSlide(prev => Math.min(prev, Math.max(0, nextImages.length - 1)));
-        if (userId) {
-            await supabase.from('profiles').update({
-                profile_images: nextImages,
-                profile_image: nextImages[0] || '',
-                profile_image_ids: nextImageIds,
-            }).eq('id', userId);
-            window.dispatchEvent(new CustomEvent('profile-updated', { detail: { profile_image: nextImages[0] || '' } }));
-        }
-    };
+
+
+
 
     const handleSave = async (e) => {
         e.preventDefault();
@@ -273,64 +284,103 @@ export default function PersonalInfo() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Not logged in');
+
+            // 1. Upload new images
+            const finalImages = [];
+            for (const img of images) {
+                if (img.file) {
+                    const { path } = await uploadImageFile(img.file);
+                    finalImages.push({ url: null, path, file: null });
+                } else {
+                    finalImages.push(img);
+                }
+            }
+
+            const finalPaths = finalImages.map(img => img.path);
+
+            // 2. Delete removed images from storage
+            const currentPaths = images.map(img => img.path).filter(Boolean);
+            const toDelete = originalPaths.filter(p => !currentPaths.includes(p));
+            for (const p of toDelete) {
+                await deleteImageFile(p);
+            }
+
+            // 3. Update Database
             const { error } = await supabase.from('profiles')
-                .update({ ...preferences, ...details, profile_images: images, profile_image: images[0] || '', profile_image_ids: imageIds })
+                .update({ 
+                    ...preferences, 
+                    ...details, 
+                    profile_images: finalPaths, 
+                    profile_image: finalPaths[0] || null,
+                    profile_image_ids: finalPaths
+                })
                 .eq('id', session.user.id);
+
             if (error) throw error;
+
+            // 4. Cleanup and Refresh UI
+            setOriginalPaths(finalPaths);
+            const signedUrlsMap = await getSignedUrls(finalPaths);
+            setImages(finalPaths.map(p => ({
+                url: signedUrlsMap[p] || p,
+                path: p,
+                file: null
+            })));
+
             i18n.changeLanguage(details.my_language || 'en');
-            window.dispatchEvent(new CustomEvent('profile-updated', { detail: { profile_image: images[0] || '' } }));
-            setSuccess('Saved!');
+            window.dispatchEvent(new CustomEvent('profile-updated', { detail: { profile_image: signedUrlsMap[finalPaths[0]] || null } }));
+            
+            setSuccess('All changes saved!');
             setEditMode(false);
             setTimeout(() => setSuccess(''), 2000);
         } catch (err) { setError(err.message); }
         finally { setSaving(false); }
     };
 
-    const handleFileChange = async (e) => {
+
+    const handleFileChange = (e) => {
         const file = e.target.files[0];
         e.target.value = '';
         if (!file) return;
         const slotIndex = pendingSlotRef.current;
-        setUploadingSlot(slotIndex);
         setError('');
+        
         try {
-            const { url, imageId } = await uploadImageFile(file);
+            const previewUrl = URL.createObjectURL(file);
             const next = [...images];
-            const nextIds = [...imageIds];
+            const newItem = { url: previewUrl, file, path: null };
+
             if (slotIndex < next.length) {
-                // Replacing an existing photo — delete the old one from imgBB
-                deleteImageFile(nextIds[slotIndex]); // fire-and-forget
-                next[slotIndex] = url;
-                nextIds[slotIndex] = imageId || null;
+                next[slotIndex] = newItem;
             } else {
-                next.push(url);
-                nextIds.push(imageId || null);
+                next.push(newItem);
             }
-            await saveImages(next, nextIds);
-            setSuccess('Photo saved!');
-            setTimeout(() => setSuccess(''), 1500);
-        } catch (err) { setError(err.message || 'Upload failed'); }
-        finally { setUploadingSlot(null); pendingSlotRef.current = null; }
+            setImages(next);
+            setActiveSlide(slotIndex < next.length ? slotIndex : next.length - 1);
+        } catch (err) { setError('Failed to process image'); }
+        finally { pendingSlotRef.current = null; }
     };
 
-    const triggerUpload = (index) => {
-        if (uploadingSlot !== null) return;
+
+
+
+    const triggerUpload = (e, index) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         pendingSlotRef.current = index;
         fileInputRef.current?.click();
     };
 
-    const removeImage = async (index) => {
+
+    const removeImage = (index) => {
         setCtxMenu(null);
-        if (images.length <= 1) {
-            setError('You must keep at least 1 photo.');
-            setTimeout(() => setError(''), 2500);
-            return;
-        }
-        // Delete from imgBB first (fire-and-forget)
-        deleteImageFile(imageIds[index]);
-        const nextIds = imageIds.filter((_, i) => i !== index);
-        await saveImages(images.filter((_, i) => i !== index), nextIds);
+        setImages(images.filter((_, i) => i !== index));
+        setActiveSlide(Math.max(0, index - 1));
     };
+
+
 
     const handleDragStart = (e, index) => {
         if (!editMode) return;
@@ -357,8 +407,11 @@ export default function PersonalInfo() {
         const next = [...images];
         const [moved] = next.splice(from, 1);
         next.splice(index, 0, moved);
+        setImages(next);
         setActiveSlide(index);
-        await saveImages(next);
+
+
+
     };
 
     const handleDragEnd = () => {
@@ -374,20 +427,22 @@ export default function PersonalInfo() {
 
     const handleCopyUrl = async () => {
         try {
-            await navigator.clipboard.writeText(images[ctxMenu.index]);
+            await navigator.clipboard.writeText(images[ctxMenu.index]?.url || '');
+
+
             setCopied(true);
             setTimeout(() => { setCopied(false); setCtxMenu(null); }, 1200);
         } catch { setCtxMenu(null); }
     };
 
     const handleImageError = async (index) => {
-        // If the image errors out (e.g. deleted from imgBB), remove it automatically
+        // If the image errors out (e.g. deleted from storage), remove it automatically
+
         if (images[index]) {
             console.warn(`[PersonalInfo] Removing broken image at index ${index}`);
-            const nextImages = images.filter((_, i) => i !== index);
-            const nextIds = imageIds.filter((_, i) => i !== index);
-            await saveImages(nextImages, nextIds);
+            setImages(images.filter((_, i) => i !== index));
         }
+
     };
 
     const touchStartX = useRef(null);
@@ -415,7 +470,18 @@ export default function PersonalInfo() {
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>{t('profile_subtitle')}</p>
                     </div>
                     <button className={`profile-edit-btn ${editMode ? 'cancel' : ''}`}
-                        onClick={() => { setEditMode(!editMode); setError(''); setSuccess(''); setExpandedCategory(null); }}>
+                        type="button"
+                        onClick={() => { 
+                            if (editMode) {
+                                fetchData(); // Revert changes on cancel
+                                setActiveSlide(0);
+                            }
+                            setEditMode(!editMode); 
+                            setError(''); 
+                            setSuccess(''); 
+                            setExpandedCategory(null); 
+                        }}>
+
                         {editMode ? t('profile_btn_cancel') : `✏️ ${t('profile_btn_edit')}`}
                     </button>
                 </div>
@@ -432,33 +498,38 @@ export default function PersonalInfo() {
                         <div className="profile-left-col">
 
                             {/* Photos Card */}
-                            <div className="profile-section-card">
+                            <div className={`profile-section-card ${editMode ? 'edit-mode-active' : ''}`}>
                                 <div className="profile-section-title">
                                     <span>📸</span> {t('profile_sec_photos')}
-                                    {editMode && images.length > 1 && (
+                                    {editMode && images.length > 0 && (
                                         <span className="profile-section-hint">· drag to reorder · right-click for options</span>
                                     )}
                                 </div>
 
+
                                 <div className="profile-viewer"
                                     onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
-                                    onClick={() => images.length === 0 && editMode && triggerUpload(0)}
+                                    onClick={(e) => images.length === 0 && editMode && triggerUpload(e, 0)}
                                     onContextMenu={(e) => editMode && images.length > 0 && handleContextMenu(e, activeSlide)}>
+
                                     {images.length > 0 ? (
                                         <>
-                                            <img key={activeSlide} src={images[activeSlide]}
+                                            <img key={activeSlide} src={images[activeSlide]?.url}
                                                 alt={`Photo ${activeSlide + 1}`}
                                                 className="profile-viewer-img"
                                                 style={{ cursor: 'pointer' }}
-                                                onClick={() => setSelectedImg(images[activeSlide])}
+                                                onClick={() => setSelectedImg(images[activeSlide]?.url)}
                                                 onError={() => handleImageError(activeSlide)} />
+
+
                                             {activeSlide === 0 && <span className="photo-main-badge">Main</span>}
                                             {activeSlide > 0 && (
-                                                <button className="viewer-nav left" onClick={() => setActiveSlide(s => s - 1)}>‹</button>
+                                                <button type="button" className="viewer-nav left" onClick={() => setActiveSlide(s => s - 1)}>‹</button>
                                             )}
                                             {activeSlide < images.length - 1 && (
-                                                <button className="viewer-nav right" onClick={() => setActiveSlide(s => s + 1)}>›</button>
+                                                <button type="button" className="viewer-nav right" onClick={() => setActiveSlide(s => s + 1)}>›</button>
                                             )}
+
                                             <div className="viewer-dots">
                                                 {images.map((_, i) => (
                                                     <div key={i} className={`viewer-dot ${i === activeSlide ? 'active' : ''}`}
@@ -468,20 +539,22 @@ export default function PersonalInfo() {
                                         </>
                                     ) : (
                                         <div className="viewer-empty" style={{ cursor: editMode ? 'pointer' : 'default' }}>
-                                            {uploadingSlot !== null
-                                                ? <div className="heart-preloader" style={{ transform: 'scale(0.5)' }}><span /><span /><span /></div>
-                                                : <><Plus size={44} color="var(--text-muted)" strokeWidth={1.2} />
-                                                    <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem' }}>
-                                                        {editMode ? 'Click to add photo' : 'No photos yet'}
-                                                    </p></>}
+                                            <Plus size={44} color="var(--text-muted)" strokeWidth={1.2} />
+                                            <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem' }}>
+                                                {editMode ? 'Click to add photo' : 'No photos yet'}
+                                            </p>
                                         </div>
+
                                     )}
                                 </div>
 
-                                {images.length > 0 && (
+                                { (images.length > 0 || editMode) && (
                                     <div className="thumb-strip">
-                                        {images.map((url, i) => (
-                                            <div key={url + i}
+
+                                        {images.map((img, i) => (
+
+                                            <div key={img.url + i}
+
                                                 className={`thumb-item ${i === activeSlide ? 'active' : ''} ${dragOver === i ? 'drag-over' : ''} ${dragIndex === i ? 'dragging' : ''}`}
                                                 draggable
                                                 onDragStart={(e) => handleDragStart(e, i)}
@@ -491,18 +564,19 @@ export default function PersonalInfo() {
                                                 onClick={() => setActiveSlide(i)}
                                                 onContextMenu={(e) => editMode && handleContextMenu(e, i)}
                                             >
-                                                <img src={url} alt={`thumb ${i}`} className="thumb-img" onError={() => handleImageError(i)} />
+                                                <img src={img.url} alt={`thumb ${i}`} className="thumb-img" onError={() => handleImageError(i)} />
                                                 {i === 0 && <div className="thumb-main-dot" title="Main photo" />}
+
                                                 {editMode && <div className="thumb-drag-hint">⠿</div>}
                                             </div>
                                         ))}
                                         {editMode && images.length < MAX_PHOTOS && (
-                                            <button className="thumb-add" onClick={() => triggerUpload(images.length)}>
-                                                {uploadingSlot !== null
-                                                    ? <div className="heart-preloader" style={{ transform: 'scale(0.25)' }}><span /><span /><span /></div>
-                                                    : <Plus size={20} color="var(--text-muted)" />}
+                                            <button type="button" className="thumb-add" onClick={(e) => triggerUpload(e, images.length)}>
+                                                <Plus size={20} color="var(--text-muted)" />
                                             </button>
                                         )}
+
+
                                     </div>
                                 )}
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.73rem', marginTop: '8px' }}>
@@ -511,8 +585,10 @@ export default function PersonalInfo() {
                             </div>
 
                             {/* Identity Card */}
-                            <div className="profile-section-card">
+                            <div className={`profile-section-card ${editMode ? 'edit-mode-active' : ''}`}>
+
                                 <div className="profile-section-title"><span>👤</span> {t('profile_sec_identity')}</div>
+
 
                                 <div style={{ marginBottom: '14px' }}>
                                     <label className="input-label required">{t('lbl_full_name')}</label>
@@ -582,7 +658,8 @@ export default function PersonalInfo() {
                         <div className="profile-right-col">
 
                             {/* Physical Appearance Card */}
-                            <div className="profile-section-card">
+                            <div className={`profile-section-card ${editMode ? 'edit-mode-active' : ''}`}>
+
                                 <div className="profile-section-title"><span>🧬</span> {t('profile_sec_physical')}</div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                     <div>
@@ -623,7 +700,8 @@ export default function PersonalInfo() {
                             </div>
 
                             {/* Personality Preferences Card */}
-                            <div className="profile-section-card">
+                            <div className={`profile-section-card ${editMode ? 'edit-mode-active' : ''}`}>
+
                                 <div className="profile-section-title"><span>✨</span> {t('profile_sec_preferences')}</div>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '14px', marginTop: '-4px' }}>
                                     {t('profile_pref_subtitle')} 🎯
@@ -709,13 +787,14 @@ export default function PersonalInfo() {
             {ctxMenu && (
                 <div ref={ctxRef} className="ctx-menu" style={{ top: ctxMenu.y, left: ctxMenu.x }}>
                     <div className="ctx-arrow" />
-                    <button className="ctx-item ctx-item-copy" onClick={handleCopyUrl}>
+                    <button type="button" className="ctx-item ctx-item-copy" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleCopyUrl(); }}>
                         {copied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy image URL</>}
                     </button>
                     <div className="ctx-divider" />
-                    <button className="ctx-item ctx-item-delete" onClick={() => removeImage(ctxMenu.index)}>
+                    <button type="button" className="ctx-item ctx-item-delete" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeImage(ctxMenu.index); }}>
                         <Trash2 size={14} /> Delete photo
                     </button>
+
                 </div>
             )
             }

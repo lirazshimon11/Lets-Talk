@@ -4,8 +4,10 @@ import { supabase } from '../lib/supabase';
 import { getCompatibility } from '../utils/compatibility';
 import EmojiPicker from 'emoji-picker-react';
 import FullscreenImage from '../components/FullscreenImage';
+import { getSignedUrls } from '../lib/signedUrls';
 import './Chat.css';
 import HeartLoader from '../components/HeartLoader';
+
 
 const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const firstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
@@ -288,6 +290,14 @@ export default function Chat() {
                     `)
                     .order('created_at', { ascending: false });
                 if (error) throw error;
+                // Collect all paths for signed URL conversion (only for revealed chats)
+                const imagePaths = data
+                    .filter(c => c.status === 'revealed')
+                    .map(c => c.user1_id === userId ? c.user2?.profile_image : c.user1?.profile_image)
+                    .filter(p => !!p);
+
+                const signedUrlsMap = await getSignedUrls(imagePaths);
+
                 const mapped = (data || []).map(conv => {
                     const isU1 = conv.user1_id === userId;
                     const other = isU1 ? conv.user2 : conv.user1;
@@ -299,10 +309,11 @@ export default function Chat() {
                         message_count: conv.message_count,
                         unread_count: Math.max(0, conv.message_count - lastRead),
                         other_username: other?.my_name || 'Unknown',
-                        other_profile_image: other?.profile_image || null,
+                        other_profile_image: signedUrlsMap[other?.profile_image] || other?.profile_image || null,
                         other_avatar: other?.my_avatar || 'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4'
                     };
                 });
+
                 setAllConversations(mapped);
             } catch (err) {
                 console.error('Sidebar fetch error:', err);
@@ -334,16 +345,26 @@ export default function Chat() {
 
                 const isUser1 = convData.user1_id === session.user.id;
                 const otherUser = isUser1 ? convData.user2 : convData.user1;
+                const meUser = isUser1 ? convData.user1 : convData.user2;
+
+                // Collect all paths for this specific chat
+                const myPaths = meUser?.profile_images || [meUser?.profile_image].filter(Boolean);
+                const otherPaths = otherUser?.profile_images || [otherUser?.profile_image].filter(Boolean);
+                const allChatPaths = [...new Set([...myPaths, ...otherPaths])];
+                
+                const signedUrlsMap = await getSignedUrls(allChatPaths);
 
                 const formattedConv = {
                     ...convData,
                     other_username: otherUser.my_name,
-                    other_profile_image: otherUser.profile_image,
-                    other_profile_images: otherUser.profile_images || [otherUser.profile_image].filter(Boolean),
+                    other_profile_image: signedUrlsMap[otherUser.profile_image] || otherUser.profile_image,
+                    other_profile_images: (otherUser.profile_images || [otherUser.profile_image].filter(Boolean))
+                        .map(p => signedUrlsMap[p] || p),
                     other_avatar: otherUser.my_avatar || 'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4',
-                    my_profile_image: isUser1 ? convData.user1.profile_image : convData.user2.profile_image,
-                    my_avatar: isUser1 ? convData.user1.my_avatar : convData.user2.my_avatar
+                    my_profile_image: signedUrlsMap[meUser?.profile_image] || meUser?.profile_image,
+                    my_avatar: meUser?.my_avatar
                 };
+
 
                 // Fetch messages
                 const { data: msgData, error: msgError } = await supabase
@@ -734,11 +755,7 @@ export default function Chat() {
                         </div>
                     </header>
 
-                    {!isRevealed && (
-                        <div className="chat-reveal-banner">
-                            <span className="mystery-text">🔒 Mystery Mode — keep chatting to unlock profiles</span>
-                        </div>
-                    )}
+
 
                     <div className="messages-container">
                         {messages.map((msg, idx) => {
@@ -1220,146 +1237,134 @@ export default function Chat() {
                         <div className="uni-overlay" onClick={() => setShowSettings(false)}>
                             <div className="uni-panel" onClick={e => e.stopPropagation()}>
 
-                                {/* Hero photo carousel or mystery */}
-                                <div className="uni-hero">
-                                    {isRevealed && allImages.length > 0 ? (
-                                        <>
-                                            <img
-                                                src={allImages[heroSlide] || displayImage}
-                                                alt={conversation.other_username}
-                                                className="uni-hero-img"
-                                                style={{ cursor: 'pointer' }}
-                                                onClick={() => { setSelectedImgIndex(heroSlide); setSelectedImg(allImages[heroSlide]); }}
-                                            />
-                                            {/* Prev / Next arrows */}
-                                            {allImages.length > 1 && (
-                                                <>
-                                                    <button
-                                                        className="uni-hero-arrow left"
-                                                        onClick={e => { e.stopPropagation(); setHeroSlide(i => (i - 1 + allImages.length) % allImages.length); }}
-                                                    >‹</button>
-                                                    <button
-                                                        className="uni-hero-arrow right"
-                                                        onClick={e => { e.stopPropagation(); setHeroSlide(i => (i + 1) % allImages.length); }}
-                                                    >›</button>
-                                                    {/* Dot indicators */}
-                                                    <div className="uni-hero-dots">
-                                                        {allImages.map((_, i) => (
-                                                            <div
-                                                                key={i}
-                                                                className={`uni-hero-dot ${i === heroSlide ? 'active' : ''}`}
-                                                                onClick={e => { e.stopPropagation(); setHeroSlide(i); }}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                </>
-                                            )}
-                                        </>
-                                    ) : !isRevealed ? (
-                                        <div className="uni-hero-mystery" style={{ background: 'var(--card-bg)' }}>
-                                            <img src={conversation.other_avatar} alt="mystery avatar" style={{ width: '120px', height: '120px', borderRadius: '50%', marginBottom: '15px' }} />
-                                            <p className="uni-mystery-text">🔒 Photos unlock as your connection deepens</p>
-                                            <p className="uni-mystery-text" style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '4px' }}>Keep chatting to discover each other</p>
-                                        </div>
-                                    ) : null}
-
-                                    {/* Overlaid name + close */}
-                                    <div className="uni-hero-overlay">
-                                        <p className="uni-hero-name">{conversation.other_username}</p>
-                                        <span className="uni-hero-status">{isRevealed ? '🔓 Revealed' : '🔒 Mystery mode'}</span>
+                                <div className="uni-sidebar">
+                                    <div className="uni-hero">
+                                        {isRevealed && allImages.length > 0 ? (
+                                            <>
+                                                <img
+                                                    src={allImages[heroSlide] || displayImage}
+                                                    alt={conversation.other_username}
+                                                    className="uni-hero-img"
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={() => { setSelectedImgIndex(heroSlide); setSelectedImg(allImages[heroSlide]); }}
+                                                />
+                                                {allImages.length > 1 && (
+                                                    <>
+                                                        <button
+                                                            className="uni-hero-arrow left"
+                                                            onClick={e => { e.stopPropagation(); setHeroSlide(i => (i - 1 + allImages.length) % allImages.length); }}
+                                                        >‹</button>
+                                                        <button
+                                                            className="uni-hero-arrow right"
+                                                            onClick={e => { e.stopPropagation(); setHeroSlide(i => (i + 1) % allImages.length); }}
+                                                        >›</button>
+                                                    </>
+                                                )}
+                                            </>
+                                        ) : !isRevealed ? (
+                                            <div className="uni-hero-mystery">
+                                                <img src={conversation.other_avatar} alt="mystery avatar" />
+                                                <div className="uni-mystery-lock">🔒</div>
+                                            </div>
+                                        ) : null}
+                                        <div className="uni-top-gradient" />
+                                        <button className="uni-close" onClick={() => setShowSettings(false)}>
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '22px', height: '22px' }}><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                        </button>
                                     </div>
-                                    <div className="uni-top-gradient" />
-                                    <button className="uni-close" onClick={() => setShowSettings(false)}>
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '24px', height: '24px' }}>
-                                            <path d="M5 12h14M13 5l7 7-7 7" />
-                                        </svg>
-                                    </button>
+
+                                    <div className="uni-sidebar-info">
+                                        <div className="uni-name-row">
+                                            <h2 className="uni-sidebar-name">{conversation.other_username}</h2>
+                                            <span className={`uni-status-dot ${isRevealed ? 'revealed' : ''}`} />
+                                        </div>
+                                    </div>
+
+                                    <div className="uni-sidebar-footer">
+                                        <div className="uni-footer-actions">
+                                            <button className="uni-footer-btn" onClick={handleReport}>
+                                                <span>🚩</span> Report
+                                            </button>
+                                            <button className="uni-footer-btn red" onClick={() => { setShowSettings(false); setShowEndConfirm(true); }}>
+                                                <span>💔</span> End Match
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="uni-divider" />
-
-                                {/* Bubble style */}
-                                <div className="uni-section">
-                                    <p className="uni-section-label">💬 Bubble Style</p>
-                                    <div className="uni-themes">
-                                        {[
-                                            { key: 'default', label: 'Default', bg: 'var(--card-bg)', border: true },
-                                            { key: 'sunset', label: 'Sunset', bg: 'linear-gradient(135deg,#ec4899,#be185d)' },
-                                            { key: 'ocean', label: 'Ocean', bg: 'linear-gradient(135deg,#008eb3,#0369a1)' },
-                                            { key: 'neon', label: 'Neon', bg: 'linear-gradient(135deg,#b900ff,#7e22ce)' },
-                                            { key: 'forest', label: 'Forest', bg: 'linear-gradient(135deg,#22c55e,#15803d)' },
-                                            { key: 'coral', label: 'Coral', bg: 'linear-gradient(135deg,#f97316,#c2410c)' },
-                                            { key: 'gold', label: 'Gold', bg: 'linear-gradient(135deg,#eab308,#a16207)' },
-                                        ].map(({ key, label, bg, border }) => (
-                                            <div key={key} className="uni-theme-item">
-                                                <div
-                                                    className={`uni-theme-swatch ${theme === key ? 'active' : ''}`}
+                                <div className="uni-main-content">
+                                    {/* Bubble style */}
+                                    <div className="uni-section">
+                                        <p className="uni-section-label">Bubble Style</p>
+                                        <div className="uni-themes-dashboard">
+                                            {[
+                                                { key: 'default', label: 'Default', bg: 'var(--card-bg)', border: true },
+                                                { key: 'sunset', label: 'Sunset', bg: 'linear-gradient(135deg,#ec4899,#be185d)' },
+                                                { key: 'ocean', label: 'Ocean', bg: 'linear-gradient(135deg,#008eb3,#0369a1)' },
+                                                { key: 'neon', label: 'Neon', bg: 'linear-gradient(135deg,#b900ff,#7e22ce)' },
+                                                { key: 'forest', label: 'Forest', bg: 'linear-gradient(135deg,#22c55e,#15803d)' },
+                                                { key: 'coral', label: 'Coral', bg: 'linear-gradient(135deg,#f97316,#c2410c)' },
+                                                { key: 'gold', label: 'Gold', bg: 'linear-gradient(135deg,#eab308,#a16207)' },
+                                            ].map(({ key, label, bg, border }) => (
+                                                <div key={key} className={`uni-dash-swatch ${theme === key ? 'active' : ''}`}
                                                     style={{ background: bg, border: border ? '1px solid var(--border-color)' : 'none' }}
                                                     onClick={() => handleThemeChange(key)}
+                                                    title={label}
                                                 />
-                                                <span className="uni-swatch-label">{label}</span>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Background mood */}
-                                <div className="uni-section">
-                                    <p className="uni-section-label">🎨 Background Mood</p>
-                                    <div className="uni-bg-grid">
-                                        {[
-                                            { key: 'none', label: 'None' },
-                                            { key: 'aurora', label: 'Aurora' },
-                                            { key: 'sunset', label: 'Sunset' },
-                                            { key: 'ocean', label: 'Ocean' },
-                                            { key: 'rose', label: 'Rose' },
-                                            { key: 'emerald', label: 'Emerald' },
-                                            { key: 'galaxy', label: 'Galaxy' },
-                                            { key: 'nordic', label: 'Nordic' },
-                                            { key: 'midnight', label: 'Midnight' },
-                                            { key: 'cherry', label: 'Cherry' },
-                                            { key: 'desert', label: 'Desert' },
-                                            { key: 'arctic', label: 'Arctic' },
-                                        ].map(({ key, label }) => (
-                                            <div key={key} className="uni-bg-item">
-                                                <div
-                                                    className={`uni-bg-swatch bg-swatch-preview-${key} ${chatBg === key ? 'active' : ''}`}
-                                                    onClick={() => setChatBg(key)}
-                                                />
-                                                <span className="uni-swatch-label">{label}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Preferences toggles */}
-                                <div className="uni-section">
-                                    <p className="uni-section-label">⚙️ Preferences</p>
-                                    <div className="uni-toggles">
-                                        {[
-                                            { icon: '🔔', label: 'Mute notifications', val: muteNotifs, set: setMuteNotifs },
-                                            { icon: '👀', label: 'Read receipts', val: readReceipts, set: setReadReceipts },
-                                            { icon: '⏱️', label: 'Disappearing messages', val: disappearMsgs, set: setDisappearMsgs },
-                                        ].map(({ icon, label, val, set }) => (
-                                            <label key={label} className="uni-toggle-row">
-                                                <span className="uni-toggle-icon">{icon}</span>
-                                                <span className="uni-toggle-label">{label}</span>
-                                                <div className={`uni-toggle-switch ${val ? 'on' : ''}`} onClick={() => set(p => !p)}>
-                                                    <div className="uni-toggle-thumb" />
+                                    {/* Background mood */}
+                                    <div className="uni-section">
+                                        <p className="uni-section-label">🎨 Background Mood</p>
+                                        <div className="uni-bg-grid-dashboard">
+                                            {[
+                                                { key: 'none', label: 'None' },
+                                                { key: 'aurora', label: 'Aurora' },
+                                                { key: 'sunset', label: 'Sunset' },
+                                                { key: 'ocean', label: 'Ocean' },
+                                                { key: 'rose', label: 'Rose' },
+                                                { key: 'emerald', label: 'Emerald' },
+                                                { key: 'galaxy', label: 'Galaxy' },
+                                                { key: 'nordic', label: 'Nordic' },
+                                                { key: 'midnight', label: 'Midnight' },
+                                                { key: 'cherry', label: 'Cherry' },
+                                                { key: 'desert', label: 'Desert' },
+                                                { key: 'arctic', label: 'Arctic' },
+                                            ].map(({ key, label }) => (
+                                                <div key={key} className="uni-bg-item-dash">
+                                                    <div className={`uni-bg-swatch-dash bg-swatch-preview-${key} ${chatBg === key ? 'active' : ''}`}
+                                                        onClick={() => setChatBg(key)}
+                                                    />
+                                                    <span className="uni-swatch-label">{label}</span>
                                                 </div>
-                                            </label>
-                                        ))}
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Preferences toggles */}
+                                    <div className="uni-section">
+                                        <p className="uni-section-label">⚙️ Preferences</p>
+                                        <div className="uni-toggles-dashboard">
+                                            {[
+                                                { icon: '🔔', label: 'Mute Notifications', val: muteNotifs, set: setMuteNotifs },
+                                                { icon: '👀', label: 'Read Receipts', val: readReceipts, set: setReadReceipts },
+                                                { icon: '⏱️', label: 'Disappearing Messages', val: disappearMsgs, set: setDisappearMsgs },
+                                            ].map(({ icon, label, val, set }) => (
+                                                <div key={label} className="uni-dash-toggle" onClick={() => set(p => !p)}>
+                                                    <div className="uni-toggle-header">
+                                                        <span>{icon}</span>
+                                                        <span className="uni-toggle-text">{label}</span>
+                                                    </div>
+                                                    <div className={`uni-toggle-pill ${val ? 'on' : ''}`}>
+                                                        <div className="uni-pill-dot" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
-
-                                <div className="uni-divider" />
-
-                                {/* Danger */}
-                                <div className="uni-danger">
-                                    <button className="uni-danger-btn" onClick={handleReport}>🚩 Report User</button>
-                                    <button className="uni-danger-btn red" onClick={() => { setShowSettings(false); setShowEndConfirm(true); }}>💔 End Match</button>
-                                </div>
-
                             </div>
                         </div>
                     )}

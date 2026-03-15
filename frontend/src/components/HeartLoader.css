@@ -5,7 +5,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-main, #0d0d0d);
+    background: transparent;
     z-index: 9999;
     animation: heartLoaderFadeIn 0.2s ease;
 }

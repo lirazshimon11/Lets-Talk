@@ -1,38 +1,42 @@
-// Shared utility: compress + upload one image file to imgBB via our Vercel API.
-// Returns { url, imageId } — store BOTH in your DB so you can delete the image later.
+import { supabase } from './supabase';
+
+// Shared utility: compress + upload one image file to Supabase Storage.
+// Returns { path, url: null } — we store the PATH in the DB, not a public URL.
 export async function uploadImageFile(file) {
     const imageCompression = (await import('browser-image-compression')).default;
 
     const options = { maxSizeMB: 1, maxWidthOrHeight: 1200, useWebWorker: true };
     const compressed = await imageCompression(file, options);
-    const base64Data = await imageCompression.getDataUrlFromFile(compressed);
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not logged in');
 
-    const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Data, mime: compressed.type })
-    });
+    const userId = session.user.id;
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+    const filePath = `${userId}/${fileName}`;
 
-    if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Upload failed');
-    }
+    const { data, error } = await supabase.storage
+        .from('profiles')
+        .upload(filePath, compressed, {
+            contentType: 'image/jpeg',
+            upsert: true
+        });
 
-    const { url, imageId } = await res.json();
-    return { url, imageId };
+    if (error) throw error;
+
+    // We return the PATH. Later, we generate a Signed URL to view it.
+    return { path: data.path, imageId: data.path }; 
 }
 
-// Delete an image from imgBB by its ID.
-// Fire-and-forget safe: errors are logged but never thrown (won't crash the UI).
-export async function deleteImageFile(imageId) {
-    if (!imageId) return; // nothing to delete (old photo uploaded before this feature)
+// Delete an image from Supabase Storage by its path.
+export async function deleteImageFile(path) {
+    if (!path) return;
     try {
-        await fetch('/api/delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageId })
-        });
+        await supabase.storage
+            .from('profiles')
+            .remove([path]);
     } catch (err) {
         console.warn('Image delete warning (non-fatal):', err.message);
     }
 }
+

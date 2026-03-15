@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getCompatibility } from '../utils/compatibility';
 import FullscreenImage from '../components/FullscreenImage';
+import { getSignedUrls } from '../lib/signedUrls';
 import './Chats.css';
 import HeartLoader from '../components/HeartLoader';
+
 
 export default function Chats() {
     const [conversations, setConversations] = useState([]);
@@ -36,6 +38,14 @@ export default function Chats() {
 
                 if (error) throw error;
 
+                // Collect all paths for signed URL conversion (only for revealed chats)
+                const imagePaths = data
+                    .filter(c => c.status === 'revealed')
+                    .map(c => c.user1_id === userId ? c.user2?.profile_image : c.user1?.profile_image)
+                    .filter(p => !!p);
+
+                const signedUrlsMap = await getSignedUrls(imagePaths);
+
                 const mapped = data.map(conv => {
                     const isUser1 = conv.user1_id === userId;
                     const otherUser = isUser1 ? conv.user2 : conv.user1;
@@ -50,7 +60,7 @@ export default function Chats() {
                         message_count: conv.message_count,
                         unread_count: unreadCount,
                         other_username: otherUser.my_name,
-                        other_profile_image: otherUser.profile_image,
+                        other_profile_image: signedUrlsMap[otherUser.profile_image] || otherUser.profile_image,
                         other_avatar: otherUser.my_avatar || 'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4'
                     };
                 });
@@ -64,6 +74,7 @@ export default function Chats() {
         };
         fetchHistory();
     }, []);
+
 
     const handleShowCompatibility = async (e, id) => {
         e.stopPropagation(); // prevent navigating to chat

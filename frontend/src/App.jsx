@@ -23,11 +23,19 @@ const ProtectedRoute = ({ children, session }) => {
   return children;
 };
 
+// Module-level cache — persists across navigations within one page load.
+// Reset when session changes (handles logout → login in the same tab).
+let _verifiedUserId = null;
+
 const ProfileMustGuard = ({ children, session }) => {
-  const [loading, setLoading] = useState(true);
+  const alreadyVerified = _verifiedUserId === session?.user?.id;
+  const [loading, setLoading] = useState(!alreadyVerified);
   const navigate = useNavigate();
 
   useEffect(() => {
+    // If we already verified this user this session, skip the Supabase round-trip.
+    if (alreadyVerified) return;
+
     const checkProfile = async () => {
       if (!session) return;
       const { data, error } = await supabase.from('profiles').select('my_name, my_age, profile_images').eq('id', session.user.id).single();
@@ -40,11 +48,12 @@ const ProfileMustGuard = ({ children, session }) => {
           navigate('/preferences', { replace: true });
         }
       } else {
+        _verifiedUserId = session.user.id; // cache success
         setLoading(false);
       }
     };
     checkProfile();
-  }, [session, navigate]);
+  }, [session, navigate, alreadyVerified]);
 
   if (loading) return <HeartLoader />;
 
@@ -110,9 +119,7 @@ export default function App() {
 
   return (
     <MobileProvider>
-      <div className="mesh-orb-1" />
-      <div className="mesh-orb-2" />
-      <div className="mesh-orb-3" />
+      {/* Light Mode Video */}
       <video
         autoPlay
         muted
@@ -120,7 +127,18 @@ export default function App() {
         playsInline
         className="live-bg-video"
       >
-        <source src="/LightModeLiveBackground3.mp4" type="video/mp4" />
+        <source src="/LightModeLiveBackground7.mp4" type="video/mp4" />
+      </video>
+
+      {/* Dark Mode Video */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="live-bg-video-dark"
+      >
+        <source src="/DarkModeLiveBackground1.mp4" type="video/mp4" />
       </video>
       <Router>
         <Routes>

@@ -54,8 +54,9 @@ body {
   -webkit-tap-highlight-color: transparent; /* Remove default mobile blue tap highlight */
 }
 
-/* Live Video Background - Light Mode Only */
-.live-bg-video {
+/* Live Video Background Settings */
+.live-bg-video,
+.live-bg-video-dark {
   position: fixed;
   top: 0;
   left: 0;
@@ -64,8 +65,13 @@ body {
   object-fit: cover;
   z-index: -1;
   pointer-events: none;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+/* Light Mode Video Settings */
+.live-bg-video {
   opacity: 1;
-  transition: opacity 0.5s ease;
+  visibility: visible;
 }
 
 [data-theme='dark'] .live-bg-video {
@@ -73,73 +79,20 @@ body {
   visibility: hidden;
 }
 
+/* Dark Mode Video Settings */
+.live-bg-video-dark {
+  opacity: 0;
+  visibility: hidden;
+}
+
+[data-theme='dark'] .live-bg-video-dark {
+  opacity: 1;
+  visibility: visible;
+}
+
 /* Remove old body pseudo-elements */
 body::before, body::after {
   display: none !important;
-}
-
-/* Dark Mode "Stellar Nebula" Animated Background */
-.mesh-orb-1,
-.mesh-orb-2,
-.mesh-orb-3 {
-  position: fixed;
-  border-radius: 50%;
-  filter: blur(160px);
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0; /* Hidden by default (light mode) */
-  transition: opacity 1s ease;
-  will-change: transform, opacity;
-}
-
-[data-theme='dark'] .mesh-orb-1,
-[data-theme='dark'] .mesh-orb-2,
-[data-theme='dark'] .mesh-orb-3 {
-  opacity: 0.25; /* Very subtle warm glow in dark mode */
-}
-
-/* Deep Ember Crimson - Top Left */
-[data-theme='dark'] .mesh-orb-1 {
-  top: -10vh;
-  left: -10vw;
-  width: 70vw;
-  height: 70vw;
-  background: radial-gradient(circle, #450a0a 0%, transparent 70%);
-  animation: float-slow 35s infinite ease-in-out alternate;
-}
-
-/* Smoky Deep Plum - Bottom Right */
-[data-theme='dark'] .mesh-orb-2 {
-  bottom: -15vh;
-  right: -10vw;
-  width: 75vw;
-  height: 75vw;
-  background: radial-gradient(circle, #2e1065 0%, transparent 70%);
-  animation: float-slow-alt 45s infinite ease-in-out alternate-reverse;
-  animation-delay: -5s;
-}
-
-/* Dark Rose Wine - Center/Right */
-[data-theme='dark'] .mesh-orb-3 {
-  top: 15vh;
-  right: -5vw;
-  width: 60vw;
-  height: 60vw;
-  background: radial-gradient(circle, #881337 0%, transparent 70%);
-  animation: float-slow 40s infinite ease-in-out alternate-reverse;
-  animation-delay: -15s;
-}
-
-@keyframes float-slow {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(10vw, 10vh) scale(1.1); }
-  100% { transform: translate(-5vw, 15vh) scale(0.95); }
-}
-
-@keyframes float-slow-alt {
-  0% { transform: translate(0, 0) scale(1.1) rotate(0deg); }
-  50% { transform: translate(-10vw, 15vh) scale(0.9) rotate(45deg); }
-  100% { transform: translate(10vw, -10vh) scale(1.05) rotate(90deg); }
 }
 
 * {

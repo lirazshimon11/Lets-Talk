@@ -91,27 +91,25 @@ export default function PhotoUpload() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Not logged in');
 
-            const urls = [];
-            const imageIds = [];
+            const paths = [];
             for (let i = 0; i < photos.length; i++) {
-                const { previewUrl, file, imageId: existingId } = photos[i];
+                const { previewUrl, file, imageId: existingPath } = photos[i];
                 if (file) {
-                    const { url, imageId } = await uploadImageFile(file);
-                    urls.push(url);
-                    imageIds.push(imageId || null);
+                    const { path } = await uploadImageFile(file);
+                    paths.push(path);
                 } else {
-                    // Already-uploaded photo (e.g. if user went back)
-                    urls.push(previewUrl);
-                    imageIds.push(existingId || null);
+                    // Already-uploaded photo (stored as path)
+                    paths.push(existingPath || previewUrl);
                 }
                 setUploadProgress(Math.round(((i + 1) / photos.length) * 100));
             }
 
             await supabase.from('profiles').update({
-                profile_images: urls,
-                profile_image: urls[0],
-                profile_image_ids: imageIds,
+                profile_images: paths,
+                profile_image: paths[0],
+                profile_image_ids: paths, // using path as ID for consistency
             }).eq('id', session.user.id);
+
 
             navigate('/preferences');
         } catch (err) {

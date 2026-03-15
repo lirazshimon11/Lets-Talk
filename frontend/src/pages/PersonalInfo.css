@@ -45,6 +45,13 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
 }
 
+.profile-section-card.edit-mode-active {
+    border: 2px dashed #ef4444;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+}
+
+
+
 .profile-section-title {
     display: flex;
     align-items: center;
@@ -298,7 +305,7 @@
     width: 64px;
     height: 64px;
     border-radius: 12px;
-    border: 2px solid rgba(128, 128, 128, 0.25);
+    border: 2px dashed rgba(128, 128, 128, 0.35);
     background: var(--input-bg);
     display: flex;
     align-items: center;

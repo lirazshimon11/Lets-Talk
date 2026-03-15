@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import { getSignedUrl } from '../lib/signedUrls';
 import FullscreenImage from '../components/FullscreenImage';
 import './Navbar.css';
 import { useMobile } from '../contexts/MobileContext';
@@ -16,12 +17,20 @@ export default function Navbar({ session }) {
     const { isMobileMode } = useMobile();
 
     useEffect(() => {
-        const fetchProfile = () => {
+        const fetchProfile = async () => {
             if (session?.user?.id) {
-                supabase.from('profiles').select('my_name, profile_image').eq('id', session.user.id).single()
-                    .then(({ data }) => { if (data) setUserProfile(data); });
+                const { data, error } = await supabase.from('profiles').select('my_name, profile_image').eq('id', session.user.id).single();
+                if (data) {
+                    if (data.profile_image) {
+                        const signedUrl = await getSignedUrl(data.profile_image);
+                        setUserProfile({ ...data, profile_image: signedUrl });
+                    } else {
+                        setUserProfile({ ...data, profile_image: null });
+                    }
+                }
             }
         };
+
 
         fetchProfile();
 
@@ -33,6 +42,7 @@ export default function Navbar({ session }) {
                 fetchProfile(); // fallback
             }
         };
+
 
         window.addEventListener('profile-updated', handleProfileUpdated);
         return () => window.removeEventListener('profile-updated', handleProfileUpdated);
@@ -91,7 +101,11 @@ export default function Navbar({ session }) {
                                         }
                                     }}>
                                     {userProfile.profile_image ? (
-                                        <img src={userProfile.profile_image} alt="User avatar" />
+                                        <img 
+                                            src={userProfile.profile_image} 
+                                            alt="" 
+                                            onError={() => setUserProfile(prev => ({...prev, profile_image: null}))}
+                                        />
                                     ) : (
                                         userProfile.my_name ? userProfile.my_name[0] : 'U'
                                     )}
