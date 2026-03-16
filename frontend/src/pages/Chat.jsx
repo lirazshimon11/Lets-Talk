@@ -52,6 +52,38 @@ export default function Chat() {
     const [fullPickerMsgId, setFullPickerMsgId] = useState(null);
     const [reactionDetailsId, setReactionDetailsId] = useState(null);
     const messageRefs = useRef({});
+    // Long press (mobile) state
+    const longPressTimerRef = useRef(null);
+    const [longPressedMsgId, setLongPressedMsgId] = useState(null);
+    // Emoji hover (PC) state
+    const [emojiHoverOpen, setEmojiHoverOpen] = useState(false);
+    const emojiHoverTimerRef = useRef(null);
+
+    // Global App Theme state (for EmojiPicker matching)
+    const [appTheme, setAppTheme] = useState(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+
+    useEffect(() => {
+        const observer = new MutationObserver(() => {
+            const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            setAppTheme(current);
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+        return () => observer.disconnect();
+    }, []);
+    // Settings wheel hover (PC) state
+    const [settingsHoverOpen, setSettingsHoverOpen] = useState(false);
+    const settingsHoverTimerRef = useRef(null);
+    // Copy success: track which message is in 'copied' state
+    const [copiedMsgId, setCopiedMsgId] = useState(null);
+    // Swipe-to-reply (mobile)
+    const swipeMsgRef = useRef(null);       // which msg is being swiped
+    const swipeStartXRef = useRef(null);    // finger start X
+    const swipeElRef = useRef(null);        // DOM element being swiped
+    // Double-tap (mobile) heart
+    const doubleTapTimerRef = useRef(null);
+    const doubleTapMsgIdRef = useRef(null);
+    // Force-hide reaction picker after choice
+    const [lastReactedId, setLastReactedId] = useState(null);
 
     const isRevealed = conversation?.status === 'revealed';
     const displayImage = isRevealed ? (conversation?.other_profile_image || 'https://via.placeholder.com/150') : null;
@@ -91,16 +123,16 @@ export default function Chat() {
         let prevHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
 
         const handleResize = () => {
-            const viewportHeight = window.visualViewport 
-                ? window.visualViewport.height 
+            const viewportHeight = window.visualViewport
+                ? window.visualViewport.height
                 : window.innerHeight;
-            
+
             const delta = prevHeight - viewportHeight;
-            
+
             // Critical: Calculate if we are at the bottom BEFORE the browser starts reflowing the CSS!
             const container = document.querySelector('.messages-container');
             let wasAtBottom = false;
-            
+
             if (container) {
                 // Generous 300px threshold allows them to be slightly scrolled up from the exact pixel bottom
                 wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 300;
@@ -112,15 +144,15 @@ export default function Chat() {
             if (delta > 80 && wasAtBottom && container) {
                 // Instantly snap the scroll position in the same frame as the height update
                 // This removes any perceived "lag" during the keyboard animation
-                container.style.scrollBehavior = 'auto'; 
-                container.scrollTop = container.scrollHeight + 1000; 
-                
+                container.style.scrollBehavior = 'auto';
+                container.scrollTop = container.scrollHeight + 1000;
+
                 // Restore smooth scrolling slightly after the keyboard finishes
                 setTimeout(() => {
-                    container.style.scrollBehavior = ''; 
+                    container.style.scrollBehavior = '';
                 }, 300);
             }
-            
+
             prevHeight = viewportHeight;
         };
 
@@ -129,7 +161,7 @@ export default function Chat() {
 
         // Listen for standard resize
         window.addEventListener('resize', handleResize);
-        
+
         // Listen specifically to visual viewport changes (crucial for virtual keyboards)
         if (window.visualViewport) {
             window.visualViewport.addEventListener('resize', handleResize);
@@ -143,21 +175,40 @@ export default function Chat() {
         };
     }, []);
 
-    // Close popups on outside click
+    // Close popups on outside click / touch
     useEffect(() => {
         const handler = (e) => {
+            // Emoji picker
             if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target) && !e.target.closest('.emoji-trigger-btn')) {
                 setShowEmojiPicker(false);
+                setEmojiHoverOpen(false);
             }
+            // Full reaction picker
             if (!e.target.closest('.mini-reaction-picker') && !e.target.closest('.msg-action-btn') && !e.target.closest('.mini-reaction-btn') && !(emojiPickerRef.current && emojiPickerRef.current.contains(e.target))) {
                 setFullPickerMsgId(null);
             }
+            // Reaction details banner
             if (!e.target.closest('.reaction-details-banner') && !e.target.closest('.whatsapp-reaction-bubble')) {
                 setReactionDetailsId(null);
             }
+            // Dismiss mobile long-press:
+            // Fires when touching ANYWHERE that isn't the reaction picker or copy button area
+            const isSafeTarget =
+                e.target.closest('.mini-reaction-picker') ||
+                e.target.closest('.copy-btn') ||
+                e.target.closest('.message-actions');
+            if (!isSafeTarget) {
+                setLongPressedMsgId(null);
+                setCopiedMsgId(null);
+            }
         };
+        // Use both mousedown (PC) and touchstart (mobile) so it fires correctly on all devices
         document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        document.addEventListener('touchstart', handler, { passive: true });
+        return () => {
+            document.removeEventListener('mousedown', handler);
+            document.removeEventListener('touchstart', handler);
+        };
     }, []);
 
     // Smart position for the full emoji picker
@@ -214,6 +265,8 @@ export default function Chat() {
         if (msgIdToReact) {
             handleMessageReaction(msgIdToReact, emoji);
             setFullPickerMsgId(null);
+            setLastReactedId(msgIdToReact);
+            setTimeout(() => setLastReactedId(null), 1000);
             return;
         }
 
@@ -238,8 +291,9 @@ export default function Chat() {
     };
 
     const handleMessageReaction = async (msgId, emoji) => {
+        console.log('[Reaction] called with', msgId, emoji);
         const msg = messages.find(m => m.id === msgId);
-        if (!msg) return;
+        if (!msg) { console.warn('[Reaction] msg not found for id', msgId); return; }
 
         const currentReactions = msg.reactions || {};
         let newReactions = { ...currentReactions };
@@ -249,19 +303,32 @@ export default function Chat() {
 
         // 2. Clear all previous reactions by this user on this message (WhatsApp style: 1 reaction max)
         Object.keys(newReactions).forEach(key => {
-            newReactions[key] = newReactions[key].filter(uid => uid !== currentUser.id);
+            newReactions[key] = (newReactions[key] || []).filter(uid => uid !== currentUser.id);
             if (newReactions[key].length === 0) delete newReactions[key];
         });
 
-        if (userAlreadyHasThisEmoji) {
-            // If they clicked the same emoji they already had, we just removed it (toggle off)
-        } else {
-            // Otherwise, add the new reaction
+        if (!userAlreadyHasThisEmoji) {
+            // Add the new reaction
             if (!newReactions[emoji]) newReactions[emoji] = [];
             newReactions[emoji].push(currentUser.id);
+            console.log('[Reaction] adding', emoji);
+        } else {
+            console.log('[Reaction] toggling off', emoji);
         }
 
-        await supabase.from('messages').update({ reactions: newReactions }).eq('id', msgId);
+        // OPTIMISTIC UPDATE: Update local state immediately
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, reactions: newReactions } : m));
+
+        // DB UPDATE
+        const { error } = await supabase.from('messages').update({ reactions: newReactions }).eq('id', msgId);
+        if (error) {
+            console.error('[Reaction] supabase error:', error);
+            // Rollback on error
+            const { data } = await supabase.from('messages').select('reactions').eq('id', msgId).single();
+            if (data) setMessages(prev => prev.map(m => m.id === msgId ? { ...m, reactions: data.reactions } : m));
+        } else {
+            console.log('[Reaction] success');
+        }
     };
 
     // Reset reveal animation tracking and clear state when switching chats
@@ -351,7 +418,7 @@ export default function Chat() {
                 const myPaths = meUser?.profile_images || [meUser?.profile_image].filter(Boolean);
                 const otherPaths = otherUser?.profile_images || [otherUser?.profile_image].filter(Boolean);
                 const allChatPaths = [...new Set([...myPaths, ...otherPaths])];
-                
+
                 const signedUrlsMap = await getSignedUrls(allChatPaths);
 
                 const formattedConv = {
@@ -452,27 +519,27 @@ export default function Chat() {
     useEffect(() => {
         if (conversation && currentUser && messages.length > 0) {
             const otherId = conversation.user1_id === currentUser.id ? conversation.user2_id : conversation.user1_id;
-            
+
             // Count messages per user
             const myMsgCount = messages.filter(m => m.sender_id === currentUser.id).length;
             const theirMsgCount = messages.filter(m => m.sender_id === otherId).length;
-            
+
             // Check for mutual reactions:
             // - currentUser has reacted to at least one of OTHER's messages
             // - OTHER has reacted to at least one of currentUser's messages
             const iHaveReacted = messages
                 .filter(m => m.sender_id === otherId && m.reactions)
                 .some(m => Object.values(m.reactions).some(uids => uids.includes(currentUser.id)));
-            
+
             const theyHaveReacted = messages
                 .filter(m => m.sender_id === currentUser.id && m.reactions)
                 .some(m => Object.values(m.reactions).some(uids => uids.includes(otherId)));
-            
+
             const conditionsMet = myMsgCount >= 15 && theirMsgCount >= 15 && iHaveReacted && theyHaveReacted;
-            
+
             // Trigger reveal animation only if crossing the threshold for the first time
             const wasAlreadyRevealed = conversation.status === 'revealed';
-            
+
             if (conditionsMet && !wasAlreadyRevealed) {
                 // Update the conversation status to revealed
                 supabase.from('conversations').update({ status: 'revealed' }).eq('id', id).then(() => {
@@ -501,11 +568,11 @@ export default function Chat() {
     useEffect(() => {
         const classes = Array.from(document.body.classList).filter(c => c.startsWith('chat-bg-'));
         classes.forEach(c => document.body.classList.remove(c));
-        
+
         if (chatBg && chatBg !== 'none') {
             document.body.classList.add(`chat-bg-${chatBg}`);
         }
-        
+
         return () => {
             const classesOnCleanup = Array.from(document.body.classList).filter(c => c.startsWith('chat-bg-'));
             classesOnCleanup.forEach(c => document.body.classList.remove(c));
@@ -757,8 +824,47 @@ export default function Chat() {
 
 
 
-                    <div className="messages-container">
+                    <div className={`messages-container${longPressedMsgId ? ' chat-long-press-active' : ''}`}>
+                        {/* Mobile long-press dim overlay */}
+                        {longPressedMsgId && (
+                            <div className="long-press-dim-overlay" onClick={() => setLongPressedMsgId(null)} />
+                        )}
+                        {/* Copy success toast is removed — now shown per-button */}
                         {messages.map((msg, idx) => {
+                            // ── Day separator helper ──
+                            const msgDate = new Date(msg.created_at);
+                            const prevMsg = messages[idx - 1];
+                            const prevDate = prevMsg ? new Date(prevMsg.created_at) : null;
+                            const isNewDay = !prevDate ||
+                                msgDate.getFullYear() !== prevDate.getFullYear() ||
+                                msgDate.getMonth() !== prevDate.getMonth() ||
+                                msgDate.getDate() !== prevDate.getDate();
+
+                            const formatDaySeparator = (date) => {
+                                const now = new Date();
+                                const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+                                if (diff === 0) return 'Today';
+                                if (diff === 1) return 'Yesterday';
+                                // Within this week: show weekday name
+                                if (diff < 7) return date.toLocaleDateString(undefined, { weekday: 'long' });
+                                // Older: show full date like March 1, 2026
+                                return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+                            };
+
+                            // ── Message time ──
+                            const msgTime = msgDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
+
+                            // ── Long press handlers (mobile) ──
+                            const handleLongPressStart = (e) => {
+                                longPressTimerRef.current = setTimeout(() => {
+                                    setLongPressedMsgId(msg.id);
+                                    setFullPickerMsgId(null);
+                                    setReactionDetailsId(null);
+                                }, 500);
+                            };
+                            const handleLongPressEnd = () => {
+                                clearTimeout(longPressTimerRef.current);
+                            };
                             if (!currentUser || !conversation) return null;
                             const isMine = msg.sender_id === currentUser.id;
 
@@ -790,7 +896,7 @@ export default function Chat() {
                             }
 
                             let bubbleClassName = isEmojiOnly ? `message-bubble emoji-only ${animClass}`.trim() : "message-bubble";
-                            let bubbleContent = <div className={bubbleClassName}>{msg.text}</div>;
+                            let bubbleBody = msg.text;
                             let textForCopy = msg.text;
 
                             if (msg.text.startsWith('[DATE_INVITE]')) {
@@ -799,8 +905,9 @@ export default function Chat() {
                                     const dateObj = new Date(data.datetime);
                                     const formattedDate = dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-                                    bubbleContent = (
-                                        <div className="message-bubble date-invite-bubble">
+                                    bubbleClassName = "message-bubble date-invite-bubble";
+                                    bubbleBody = (
+                                        <>
                                             <div className="date-invite-header">
                                                 📅 Date Invitation
                                             </div>
@@ -825,16 +932,17 @@ export default function Chat() {
                                                     <div className="date-status declined">❌ Declined</div>
                                                 )}
                                             </div>
-                                        </div>
+                                        </>
                                     );
                                 } catch (e) {
-                                    bubbleContent = <div className="message-bubble">Sent a date invite (Error loading)</div>;
+                                    bubbleBody = "Sent a date invite (Error loading)";
                                 }
                             } else if (msg.text.startsWith('[STATUS_DECLARATION]')) {
                                 try {
                                     const data = JSON.parse(msg.text.replace('[STATUS_DECLARATION]', ''));
-                                    bubbleContent = (
-                                        <div className="message-bubble date-invite-bubble">
+                                    bubbleClassName = "message-bubble date-invite-bubble";
+                                    bubbleBody = (
+                                        <>
                                             <div className="date-invite-header" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
                                                 💕 Relationship Update
                                             </div>
@@ -858,10 +966,10 @@ export default function Chat() {
                                                     <div className="date-status declined">❌ Disagreed</div>
                                                 )}
                                             </div>
-                                        </div>
+                                        </>
                                     );
                                 } catch (e) {
-                                    bubbleContent = <div className="message-bubble">Sent a status update (Error loading)</div>;
+                                    bubbleBody = "Sent a status update (Error loading)";
                                 }
                             } else if (msg.text.startsWith('[REPLY_START]')) {
                                 const endIdx = msg.text.indexOf('[REPLY_END]');
@@ -870,8 +978,8 @@ export default function Chat() {
                                         const replyData = JSON.parse(msg.text.substring(13, endIdx));
                                         const actualText = msg.text.substring(endIdx + 11);
                                         textForCopy = actualText;
-                                        bubbleContent = (
-                                            <div className="message-bubble">
+                                        bubbleBody = (
+                                            <>
                                                 <div
                                                     className="reply-preview-bubble clickable-reply"
                                                     onClick={() => scrollToMessage(replyData.id)}
@@ -880,13 +988,20 @@ export default function Chat() {
                                                     <div className="reply-text">{replyData.text.replace(/\[REPLY_START\].*?\[REPLY_END\]/, '')}</div>
                                                 </div>
                                                 {actualText}
-                                            </div>
+                                            </>
                                         );
                                     } catch (e) {
-                                        bubbleContent = <div className="message-bubble">{msg.text}</div>;
+                                        bubbleBody = msg.text;
                                     }
                                 }
                             }
+
+                            const bubbleContent = (
+                                <div className={bubbleClassName}>
+                                    {bubbleBody}
+                                    <span className="msg-time-stamp">{msgTime}</span>
+                                </div>
+                            );
 
                             const reactions = msg.reactions || {};
                             const reactionEntries = Object.entries(reactions); // [emoji, uids[]]
@@ -922,16 +1037,60 @@ export default function Chat() {
                                 }
                             }
 
+                            const daySeparator = isNewDay ? (
+                                <div className="day-separator">
+                                    <span>{formatDaySeparator(msgDate)}</span>
+                                </div>
+                            ) : null;
+
                             const unreadDivider = idx === firstUnreadIndex ? (
                                 <div className="unread-divider">
                                     <span>{messages.length - firstUnreadIndex} new messages</span>
                                 </div>
                             ) : null;
 
+                            // Copy with per-button copied animation
+                            // Use setCopiedMsgId only — do NOT tie to longPressedMsgId lifetime
+                            // (the copy button stays visible via mobile-actions-visible class)
+                            const handleCopy = (t) => {
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                    navigator.clipboard.writeText(t)
+                                        .then(() => setCopiedMsgId(msg.id))
+                                        .catch(() => fallbackCopy(t));
+                                } else {
+                                    fallbackCopy(t);
+                                }
+
+                                function fallbackCopy(text) {
+                                    try {
+                                        const textArea = document.createElement("textarea");
+                                        textArea.value = text;
+                                        textArea.style.position = "fixed";
+                                        textArea.style.left = "-9999px";
+                                        textArea.style.top = "0";
+                                        document.body.appendChild(textArea);
+                                        textArea.focus();
+                                        textArea.select();
+                                        document.execCommand('copy');
+                                        document.body.removeChild(textArea);
+                                        setCopiedMsgId(msg.id);
+                                    } catch (err) {
+                                        console.error('Copy failed', err);
+                                    }
+                                }
+
+                                setTimeout(() => {
+                                    setCopiedMsgId(prev => prev === msg.id ? null : prev);
+                                }, 1500);
+                            };
+
+                            const isCopied = copiedMsgId === msg.id;
+
                             const actionButtons = (
                                 <div className={`message-actions ${isMine ? 'right' : 'left'}`}>
+                                    {/* Reply button — PC only */}
                                     <button
-                                        className="msg-action-btn"
+                                        className="msg-action-btn pc-only-btn"
                                         onClick={() => {
                                             setReplyTo(msg);
                                             setTimeout(() => inputRef.current?.focus(), 10);
@@ -940,25 +1099,60 @@ export default function Chat() {
                                     >
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></svg>
                                     </button>
-                                    <button className="msg-action-btn" onClick={() => navigator.clipboard.writeText(textForCopy)} title="Copy">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                    <button
+                                        className={`msg-action-btn copy-btn${isCopied ? ' copied' : ''}`}
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onTouchStart={(e) => e.stopPropagation()}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleCopy(textForCopy);
+                                            // Close mobile menu after copy
+                                            setLongPressedMsgId(null);
+                                        }}
+                                        title={isCopied ? 'Copied!' : 'Copy'}
+                                    >
+                                        {isCopied ? (
+                                            <svg className="copy-check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="20 6 9 17 4 12" />
+                                            </svg>
+                                        ) : (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                        )}
                                     </button>
 
                                 </div>
                             );
 
+                            // Mini reaction picker: on PC shown on hover; on mobile shown after long press
+                            const isMobileLongPressed = longPressedMsgId === msg.id;
                             const miniReactionPickerUi = (!reactionDetailsId && !fullPickerMsgId) ? (
-                                <div className="mini-reaction-picker">
+                                <div className={`mini-reaction-picker${isMobileLongPressed ? ' mobile-long-pressed' : ''}${lastReactedId === msg.id ? ' force-hide' : ''}`}>
                                     {['❤️', '😂', '😮', '😢', '🔥', '👍'].map(emoji => (
-                                        <button key={emoji} onClick={(e) => { e.stopPropagation(); handleMessageReaction(msg.id, emoji); }} className="mini-reaction-btn">
+                                        <button
+                                            key={emoji}
+                                            className="mini-reaction-btn"
+                                            // onPointerDown with stopPropagation prevents the document-level dismiss handler
+                                            // from firing and potentially removing the element before the click completes.
+                                            onPointerDown={(e) => e.stopPropagation()}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleMessageReaction(msg.id, emoji);
+                                                setLongPressedMsgId(null);
+                                                setLastReactedId(msg.id);
+                                                setTimeout(() => setLastReactedId(null), 1000);
+                                            }}
+                                        >
                                             {emoji}
                                         </button>
                                     ))}
                                     <button
                                         className="mini-reaction-btn plus-btn"
+                                        onPointerDown={(e) => e.stopPropagation()}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setFullPickerMsgId(msg.id);
+                                            setLongPressedMsgId(null);
                                         }}
                                         title="More Emojis"
                                     >
@@ -969,10 +1163,11 @@ export default function Chat() {
 
                             return (
                                 <div key={idx} style={{ display: 'contents' }}>
+                                    {daySeparator}
                                     {unreadDivider}
                                     <div
                                         ref={el => messageRefs.current[msg.id] = el}
-                                        className={`message-wrapper ${isMine ? 'mine' : 'theirs'} ${emphasizedId === msg.id ? 'emphasized' : ''}`}
+                                        className={`message-wrapper ${isMine ? 'mine' : 'theirs'} ${emphasizedId === msg.id ? 'emphasized' : ''} ${isMobileLongPressed ? 'long-press-focus' : ''} ${isCopied ? 'mobile-actions-visible' : ''}`}
                                         onMouseEnter={(e) => {
                                             const rect = e.currentTarget.getBoundingClientRect();
                                             const picker = e.currentTarget.querySelector('.mini-reaction-picker');
@@ -984,6 +1179,83 @@ export default function Chat() {
                                                     picker.style.top = 'auto';
                                                     picker.style.bottom = 'calc(100% + 4px)';
                                                 }
+                                            }
+                                        }}
+                                        onDoubleClick={(e) => {
+                                            // PC only: double-click anywhere in row triggers reply
+                                            if (window.matchMedia('(pointer: fine)').matches) {
+                                                e.preventDefault();
+                                                setReplyTo(msg);
+                                                setTimeout(() => inputRef.current?.focus(), 10);
+                                            }
+                                        }}
+                                        onTouchStart={(e) => {
+                                            // If touch originates from a button/interactive element,
+                                            // don't start long press or double-tap
+                                            if (e.target.closest('button') || e.target.closest('.mini-reaction-picker') || e.target.closest('.message-actions')) return;
+
+                                            // Long press ONLY when finger is on the message bubble, not empty row space
+                                            const onBubble = e.target.closest('.message-bubble') ||
+                                                e.target.closest('.date-invite-bubble') ||
+                                                e.target.closest('.reply-preview-bubble');
+                                            if (onBubble) {
+                                                longPressTimerRef.current = setTimeout(() => {
+                                                    setLongPressedMsgId(msg.id);
+                                                    setFullPickerMsgId(null);
+                                                    setReactionDetailsId(null);
+                                                }, 500);
+                                            }
+                                            // Swipe-to-reply tracking (whole row)
+                                            swipeMsgRef.current = msg;
+                                            swipeStartXRef.current = e.touches[0].clientX;
+                                            swipeElRef.current = e.currentTarget;
+                                            // Double-tap heart (only on bubble)
+                                            if (onBubble) {
+                                                if (doubleTapMsgIdRef.current === msg.id) {
+                                                    clearTimeout(doubleTapTimerRef.current);
+                                                    doubleTapMsgIdRef.current = null;
+                                                    handleMessageReaction(msg.id, '❤️');
+                                                } else {
+                                                    doubleTapMsgIdRef.current = msg.id;
+                                                    doubleTapTimerRef.current = setTimeout(() => {
+                                                        doubleTapMsgIdRef.current = null;
+                                                    }, 300);
+                                                }
+                                            }
+                                        }}
+                                        onTouchMove={(e) => {
+                                            // Cancel long press if user is moving
+                                            clearTimeout(longPressTimerRef.current);
+                                            // Swipe-to-reply: translate bubble towards center
+                                            const dx = e.touches[0].clientX - swipeStartXRef.current;
+                                            const el = swipeElRef.current;
+                                            if (!el) return;
+                                            const isMineRow = el.classList.contains('mine');
+                                            // Mine swipes left (negative), Theirs swipes right (positive)
+                                            const validSwipe = isMineRow ? dx < 0 : dx > 0;
+                                            if (validSwipe) {
+                                                const clamped = Math.min(Math.abs(dx), 80);
+                                                const translateX = isMineRow ? -clamped : clamped;
+                                                el.style.transform = `translateX(${translateX}px)`;
+                                                el.style.transition = 'none';
+                                            }
+                                        }}
+                                        onTouchEnd={(e) => {
+                                            clearTimeout(longPressTimerRef.current);
+                                            const el = swipeElRef.current;
+                                            if (el) {
+                                                const dx = Math.abs(e.changedTouches[0].clientX - swipeStartXRef.current);
+                                                // Snap back with spring animation
+                                                el.style.transition = 'transform 0.35s cubic-bezier(0.175,0.885,0.32,1.275)';
+                                                el.style.transform = 'translateX(0)';
+                                                // Trigger reply if swiped far enough
+                                                if (dx > 55 && swipeMsgRef.current) {
+                                                    setReplyTo(swipeMsgRef.current);
+                                                    setTimeout(() => inputRef.current?.focus(), 10);
+                                                }
+                                                swipeMsgRef.current = null;
+                                                swipeElRef.current = null;
+                                                swipeStartXRef.current = null;
                                             }
                                         }}
                                     >
@@ -1097,22 +1369,52 @@ export default function Chat() {
                             );
                         })()}
 
-                        {/* Action Menu Popup */}
+                        {/* Action menu hover bridge for settings wheel (PC) */}
                         {showActionMenu && (
-                            <div className="action-menu-popup">
-                                <button type="button" className="action-menu-item" onClick={() => { setShowDateModal(true); setShowActionMenu(false); }}>
+                            <div
+                                className="action-menu-popup"
+                                onMouseEnter={() => {
+                                    if (window.matchMedia('(pointer: fine)').matches) {
+                                        clearTimeout(settingsHoverTimerRef.current);
+                                    }
+                                }}
+                                onMouseLeave={() => {
+                                    if (window.matchMedia('(pointer: fine)').matches && settingsHoverOpen) {
+                                        settingsHoverTimerRef.current = setTimeout(() => {
+                                            setShowActionMenu(false);
+                                            setSettingsHoverOpen(false);
+                                        }, 200);
+                                    }
+                                }}
+                            >
+                                <button type="button" className="action-menu-item" onClick={() => { setShowDateModal(true); setShowActionMenu(false); setSettingsHoverOpen(false); }}>
                                     📅 Suggest a Date
                                 </button>
-                                <button type="button" className="action-menu-item" disabled={false} onClick={() => { setShowStatusModal(true); setShowActionMenu(false); }}>
+                                <button type="button" className="action-menu-item" disabled={false} onClick={() => { setShowStatusModal(true); setShowActionMenu(false); setSettingsHoverOpen(false); }}>
                                     💕 Declare Status
                                 </button>
                             </div>
                         )}
                         <form className="chat-input-form" onSubmit={handleSend} style={{ borderRadius: '30px', background: 'var(--card-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', display: fullPickerMsgId ? 'none' : 'flex', alignItems: 'center' }}>
-                            {/* Action Menu Toggle */}
+                            {/* Action Menu Toggle (settings wheel) */}
                             <button
                                 type="button"
                                 onClick={() => setShowActionMenu(!showActionMenu)}
+                                onMouseEnter={() => {
+                                    if (window.matchMedia('(pointer: fine)').matches) {
+                                        clearTimeout(settingsHoverTimerRef.current);
+                                        setSettingsHoverOpen(true);
+                                        setShowActionMenu(true);
+                                    }
+                                }}
+                                onMouseLeave={() => {
+                                    if (window.matchMedia('(pointer: fine)').matches && settingsHoverOpen) {
+                                        settingsHoverTimerRef.current = setTimeout(() => {
+                                            setShowActionMenu(false);
+                                            setSettingsHoverOpen(false);
+                                        }, 300);
+                                    }
+                                }}
                                 className="emoji-trigger-btn"
                                 title="Actions"
                             >
@@ -1127,12 +1429,27 @@ export default function Chat() {
                                 type="button"
                                 onClick={() => {
                                     if (showEmojiPicker) {
-                                        // If currently showing emoji picker, clicking keyboard icon should close picker and focus input
                                         setShowEmojiPicker(false);
                                         setTimeout(() => inputRef.current?.focus(), 100);
                                     } else {
-                                        // If currently typing, clicking smiley icon should open picker
                                         setShowEmojiPicker(true);
+                                    }
+                                }}
+                                onMouseEnter={() => {
+                                    // PC hover-to-open: only on pointer:fine devices
+                                    if (window.matchMedia('(pointer: fine)').matches && !showEmojiPicker) {
+                                        clearTimeout(emojiHoverTimerRef.current);
+                                        setEmojiHoverOpen(true);
+                                        setShowEmojiPicker(true);
+                                    }
+                                }}
+                                onMouseLeave={() => {
+                                    if (window.matchMedia('(pointer: fine)').matches && emojiHoverOpen) {
+                                        // Small delay so user can move cursor into the picker
+                                        emojiHoverTimerRef.current = setTimeout(() => {
+                                            setShowEmojiPicker(false);
+                                            setEmojiHoverOpen(false);
+                                        }, 300);
                                     }
                                 }}
                                 className="emoji-trigger-btn"
@@ -1171,10 +1488,10 @@ export default function Chat() {
                                 placeholder="Message..."
                                 className="chat-input"
                                 rows={1}
-                                style={{ 
-                                    border: 'none', 
-                                    background: 'transparent', 
-                                    boxShadow: 'none', 
+                                style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    boxShadow: 'none',
                                     flex: 1,
                                     resize: 'none',
                                     overflowY: 'auto',
@@ -1194,11 +1511,27 @@ export default function Chat() {
 
                         {/* Emoji picker panel - Popup style */}
                         {showEmojiPicker && !fullPickerMsgId && (
-                            <div ref={emojiPickerRef} className="popup-emoji-picker">
+                            <div
+                                ref={emojiPickerRef}
+                                className="popup-emoji-picker"
+                                onMouseEnter={() => {
+                                    // Cancel any pending close timer when cursor enters the picker
+                                    clearTimeout(emojiHoverTimerRef.current);
+                                }}
+                                onMouseLeave={() => {
+                                    // Close after a short delay when cursor leaves the picker
+                                    if (emojiHoverOpen) {
+                                        emojiHoverTimerRef.current = setTimeout(() => {
+                                            setShowEmojiPicker(false);
+                                            setEmojiHoverOpen(false);
+                                        }, 200);
+                                    }
+                                }}
+                            >
                                 <EmojiPicker
                                     onEmojiClick={handleEmojiClick}
                                     emojiStyle="apple"
-                                    theme="dark"
+                                    theme={appTheme}
                                     searchDisabled={true}
                                     skinTonesDisabled={false}
                                     width="100%"
@@ -1221,7 +1554,7 @@ export default function Chat() {
                                 <EmojiPicker
                                     onEmojiClick={handleEmojiClick}
                                     emojiStyle="apple"
-                                    theme="dark"
+                                    theme={appTheme}
                                     searchDisabled={true}
                                     skinTonesDisabled={false}
                                     width="100%"
@@ -1269,7 +1602,7 @@ export default function Chat() {
                                         ) : null}
                                         <div className="uni-top-gradient" />
                                         <button className="uni-close" onClick={() => setShowSettings(false)}>
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '22px', height: '22px' }}><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '22px', height: '22px' }}><path d="M18 6L6 18M6 6l12 12" /></svg>
                                         </button>
                                     </div>
 
@@ -1424,10 +1757,10 @@ export default function Chat() {
                     )}
                 </div>
                 {/* Fullscreen Image Overlay */}
-                <FullscreenImage 
-                    images={selectedImg ? allImages : null} 
-                    initialIndex={selectedImgIndex} 
-                    onClose={() => setSelectedImg(null)} 
+                <FullscreenImage
+                    images={selectedImg ? allImages : null}
+                    initialIndex={selectedImgIndex}
+                    onClose={() => setSelectedImg(null)}
                 />
 
                 {/* ═══ Suggest a Date Modal ═══ */}

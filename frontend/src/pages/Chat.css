@@ -165,10 +165,11 @@ html.mobile-mode .chat-page-wrapper {
     max-width: none !important;
     /* Removes the 800px/1100px limits to allow growth to the 95% right margin */
     position: relative !important;
-    background: var(--card-bg);
+    /* Default: transparent so the app's page background (light/dark) shows through */
+    background: transparent;
     color: var(--text-main);
-    backdrop-filter: var(--backdrop-filter);
-    -webkit-backdrop-filter: var(--backdrop-filter);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border: 1px solid var(--glass-border);
     border-radius: 24px;
     box-shadow: var(--card-shadow);
@@ -638,6 +639,9 @@ html.mobile-mode .messages-container {
        even though the parent container is forced LTR */
     unicode-bidi: plaintext;
     text-align: start;
+    position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 @keyframes bubblePop {
@@ -728,6 +732,14 @@ html.mobile-mode .messages-container {
     line-height: 1.1;
     margin: 2px 0;
     transform-origin: bottom center;
+}
+
+.message-bubble.emoji-only .msg-time-stamp {
+    font-size: 0.7rem !important;
+    margin-top: 5px !important;
+    opacity: 0.5;
+    text-align: center;
+    align-self: center;
 }
 
 html.mobile-mode .message-wrapper.mine .message-bubble.emoji-only,
@@ -936,7 +948,7 @@ html.mobile-mode .popup-emoji-picker {
     gap: 12px;
     align-items: center;
     position: relative;
-    border-top: 1px solid var(--border-color);
+    border: none;
     direction: ltr !important;
     /* Force layout: settings/emoji on left, send on right */
 }
@@ -972,22 +984,24 @@ html.mobile-mode .emoji-trigger-btn {
 .chat-input {
     flex: 1;
     background: var(--input-bg);
-    border: 1px solid var(--border-color);
+    border: none;
     padding: 14px 20px;
     border-radius: 24px;
     color: var(--text-main);
     font-size: 0.95rem;
     font-family: inherit;
     transition: all 0.3s ease;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+    box-shadow: none;
     /* Allow typing in RTL languages without breaking the LTR container */
     unicode-bidi: plaintext;
     text-align: start;
+    outline: none;
 }
 
 .chat-input:focus {
-    border-color: #EC4899;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02), 0 0 0 4px rgba(236, 72, 153, 0.1);
+    border-color: transparent;
+    box-shadow: none;
+    outline: none;
 }
 
 html.mobile-mode .chat-input {
@@ -1364,14 +1378,22 @@ html.mobile-mode .chat-send-btn {
 .mini-reaction-picker::after {
     content: '';
     position: absolute;
-    bottom: -20px;
-    left: 0;
-    right: 0;
-    height: 20px;
+    /* Bridge gap between picker (floating above) and message-wrapper */
+    top: 100%;
+    left: -10px;
+    right: -10px;
+    height: 24px;
     background: transparent;
 }
 
-.message-wrapper:hover .mini-reaction-picker {
+.mini-reaction-picker.force-hide {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(10px) scale(0.9) !important;
+}
+
+.message-wrapper:hover .mini-reaction-picker,
+.mini-reaction-picker.mobile-long-pressed {
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0) scale(1);
@@ -1458,6 +1480,93 @@ html.mobile-mode .chat-send-btn {
     font-weight: 800;
     color: var(--text-muted);
     background: transparent;
+}
+
+/* ── Day Separator ── */
+.day-separator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 14px 0 6px;
+    width: 100%;
+    gap: 10px;
+}
+
+.day-separator::before,
+.day-separator::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--glass-border);
+}
+
+.day-separator span {
+    padding: 4px 14px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    white-space: nowrap;
+}
+
+/* ── Message Timestamp ── */
+.msg-time-stamp {
+    align-self: flex-end;
+    font-size: 0.65rem;
+    color: inherit;
+    opacity: 0.6;
+    margin-top: 4px;
+    margin-left: 12px;
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+    font-weight: 500;
+}
+
+.message-wrapper.mine .msg-time-stamp {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.message-wrapper.theirs .msg-time-stamp {
+    color: var(--text-muted);
+}
+
+/* ── Mobile Long-Press Highlight ── */
+html.mobile-mode .message-wrapper.mobile-highlighted .message-bubble {
+    background: rgba(168, 85, 247, 0.18) !important;
+    outline: 2px solid rgba(168, 85, 247, 0.5);
+    border-radius: 20px;
+    transition: background 0.2s, outline 0.2s;
+}
+
+/* ── Mobile: Show mini-reaction-picker on long press ── */
+html.mobile-mode .mini-reaction-picker {
+    /* On mobile, hide by default (no hover) */
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(8px) scale(0.95) !important;
+}
+
+html.mobile-mode .mini-reaction-picker.mobile-long-pressed {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: translateY(0) scale(1) !important;
+    /* Position above the message – handled by JS onMouseEnter already applied class */
+    bottom: calc(100% + 4px);
+    top: auto !important;
+}
+
+/* ── Emoji Picker hover bridge so cursor can move from button into picker ── */
+.popup-emoji-picker:hover {
+    display: block;
+}
+
+/* Allow popup-emoji-picker to listen to mouse leave so we can close on leave */
+.popup-emoji-picker {
+    pointer-events: auto;
 }
 
 /* Modals */
@@ -2761,8 +2870,10 @@ html.mobile-mode .uni-overlay {
 .uni-hero {
     position: relative;
     width: 100%;
-    flex: 1 !important; /* Force to take all available space, pushing the name downwards */
-    display: flex; /* Overcome flex percentage-height calculation issue */
+    flex: 1 !important;
+    /* Force to take all available space, pushing the name downwards */
+    display: flex;
+    /* Overcome flex percentage-height calculation issue */
     flex-direction: column;
     /* Explicitly dominate sidebar height */
     overflow: hidden;
@@ -3236,10 +3347,18 @@ html.mobile-mode .uni-bg-swatch {
 }
 
 html.mobile-mode .uni-toggle-row {
-    padding: 11px 0 !important;
+    padding: 10px 0 !important;
     background: transparent !important;
     border: none !important;
     border-radius: 0 !important;
+}
+
+.message-bubble.emoji-only .msg-time-stamp {
+    font-size: 0.7rem !important;
+    margin-top: 5px !important;
+    opacity: 0.5;
+    text-align: center;
+    align-self: center;
 }
 
 .uni-toggle-icon {
@@ -3960,3 +4079,130 @@ html.mobile-mode .roadmap-modal .btn-close:hover {
     background: rgba(239, 68, 68, 0.15) !important;
     color: #ef4444 !important;
 }
+
+/* ───────────────────────────────────────── */
+/* NEW FEATURES CSS                          */
+/* ───────────────────────────────────────── */
+
+/* ── Chat container: apply card bg only when a mood bg is active ── */
+.chat-container[class*="chat-bg-"] {
+    background: var(--card-bg) !important;
+    backdrop-filter: var(--backdrop-filter) !important;
+    -webkit-backdrop-filter: var(--backdrop-filter) !important;
+}
+
+/* ── PC Chat Container: visible glowing border ── */
+@media (hover: hover) and (pointer: fine) {
+    .chat-container {
+        border: 1.5px solid transparent !important;
+        background-clip: padding-box;
+        box-shadow:
+            0 0 0 1.5px rgba(168, 85, 247, 0.35),
+            0 0 28px rgba(168, 85, 247, 0.12),
+            0 20px 60px rgba(0, 0, 0, 0.25) !important;
+    }
+}
+
+/* ── PC-only Reply button: hidden on mobile ── */
+html.mobile-mode .pc-only-btn {
+    display: none !important;
+}
+
+/* ── Prevent native text selection on message bubble text only ── */
+.message-bubble {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+/* ── Mobile Long-Press: smooth animated dim on everything else ── */
+html.mobile-mode .message-wrapper {
+    position: relative;
+    z-index: 1;
+    opacity: 1;
+    filter: blur(0px) brightness(1);
+    transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+html.mobile-mode .messages-container.chat-long-press-active .message-wrapper {
+    opacity: 0.15;
+    filter: blur(1.5px) brightness(0.6);
+    transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+html.mobile-mode .messages-container.chat-long-press-active .message-wrapper.long-press-focus {
+    opacity: 1;
+    filter: blur(0px) brightness(1);
+    z-index: 60;
+    transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+/* ── Mobile Long-Press Dim Overlay ── */
+.long-press-dim-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(3px);
+    z-index: 50;
+    cursor: pointer;
+    animation: dimFadeIn 0.4s ease forwards;
+}
+
+@keyframes dimFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* ── Mobile: action buttons only visible during long-press or copied state ── */
+html.mobile-mode .message-actions {
+    /* Hide by default on mobile — shown only in long-press context */
+    display: none !important;
+}
+
+html.mobile-mode .message-wrapper.long-press-focus .message-actions {
+    display: flex !important;
+}
+
+/* Also keep action buttons visible while copy animation plays out */
+html.mobile-mode .message-wrapper.mobile-actions-visible .message-actions {
+    display: flex !important;
+}
+
+/* ── Copy button → Checkmark animation ── */
+.copy-btn {
+    position: relative;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.copy-btn.copied {
+    background: rgba(16, 185, 129, 0.18);
+    color: #10b981;
+    border-radius: 8px;
+}
+
+/* The checkmark SVG draws itself in with a stroke animation */
+.copy-check-icon {
+    stroke: #10b981;
+    stroke-dasharray: 30;
+    stroke-dashoffset: 30;
+    animation: drawCheck 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes drawCheck {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+/* ── Swipe-to-reply ── */
+.message-wrapper {
+    position: relative;
+    will-change: transform;
+}
+
+/* ── Old copy-toast removed ── */
