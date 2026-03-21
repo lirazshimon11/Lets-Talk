@@ -425,6 +425,21 @@ html.mobile-mode .reveal-person.theirs {
     --bubble-theirs: rgba(236, 72, 153, 0.1);
 }
 
+.theme-forest {
+    --bubble-mine: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+    --bubble-theirs: rgba(34, 197, 94, 0.1);
+}
+
+.theme-coral {
+    --bubble-mine: linear-gradient(135deg, #f97316 0%, #c2410c 100%);
+    --bubble-theirs: rgba(249, 115, 22, 0.1);
+}
+
+.theme-gold {
+    --bubble-mine: linear-gradient(135deg, #eab308 0%, #a16207 100%);
+    --bubble-theirs: rgba(234, 179, 8, 0.1);
+}
+
 .chat-header {
     display: flex;
     justify-content: space-between;
@@ -2717,7 +2732,8 @@ html.mobile-mode .uni-overlay {
     /* PC Mode: Take up the full chat container with left-right split */
     width: 100%;
     height: 100%;
-    background: var(--card-bg);
+    background: var(--bg-color) !important;
+    position: relative;
     border-radius: inherit;
     overflow: hidden;
     /* No scrolling on PC container itself */
@@ -2731,7 +2747,7 @@ html.mobile-mode .uni-overlay {
     width: 360px;
     /* Dominant presence */
     height: 100%;
-    background: rgba(var(--bg-rgb), 0.2);
+    background: var(--card-bg);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
@@ -2746,7 +2762,7 @@ html.mobile-mode .uni-overlay {
     padding: 20px;
     overflow-y: auto;
     scrollbar-width: none;
-    background: rgba(var(--card-bg-rgb), 0.3);
+    background: var(--bg-color);
 }
 
 .uni-main-content::-webkit-scrollbar {
@@ -2763,18 +2779,21 @@ html.mobile-mode .uni-overlay {
 
 .uni-dash-swatch {
     height: 60px;
-    /* Slightly taller for better presence */
     border-radius: 16px;
     cursor: pointer;
+    border: 2px solid transparent;
     transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .uni-dash-swatch:hover {
-    transform: scale(1.1);
+    transform: scale(1.08);
+    border-color: rgba(255,255,255,0.3);
 }
 
 .uni-dash-swatch.active {
-    box-shadow: 0 0 0 3px var(--bg-color), 0 0 0 5px var(--accent);
+    transform: scale(1.08);
+    border: 2px solid #EC4899;
+    box-shadow: 0 0 0 2px rgba(236,72,153,0.4);
 }
 
 /* Dashboard Toggles */
@@ -2859,11 +2878,19 @@ html.mobile-mode .uni-overlay {
     aspect-ratio: 1/1;
     border-radius: 14px;
     cursor: pointer;
-    transition: 0.2s;
+    border: 2px solid transparent;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.uni-bg-swatch-dash:hover {
+    transform: scale(1.08);
+    border-color: rgba(255,255,255,0.3);
 }
 
 .uni-bg-swatch-dash.active {
-    box-shadow: 0 0 0 3px var(--bg-color), 0 0 0 5px var(--accent);
+    transform: scale(1.08);
+    border: 2px solid #EC4899;
+    box-shadow: 0 0 0 2px rgba(236,72,153,0.4);
 }
 
 /* Sidebar Hero & Mystery */
@@ -3030,6 +3057,7 @@ html.mobile-mode .uni-overlay {
     .uni-main-content {
         padding: 10px;
         height: auto;
+        overflow-y: visible;
     }
 }
 
@@ -3040,7 +3068,6 @@ html.mobile-mode .uni-panel {
     overflow-x: hidden !important;
     overflow-y: auto !important;
     background: var(--bg-color) !important;
-    /* Match the app and chat theme background */
     position: fixed !important;
     top: 0 !important;
     bottom: 0 !important;
@@ -3050,6 +3077,19 @@ html.mobile-mode .uni-panel {
     max-height: none !important;
     z-index: 1001 !important;
     flex-direction: column !important;
+}
+
+html.mobile-mode .uni-sidebar {
+    width: 100% !important;
+    height: auto !important;
+    border-right: none !important;
+    flex-shrink: 0 !important;
+}
+
+html.mobile-mode .uni-main-content {
+    padding: 10px !important;
+    height: auto !important;
+    overflow-y: visible !important;
 }
 
 html.mobile-mode .uni-settings-wrapper {
@@ -3104,11 +3144,85 @@ html.mobile-mode .uni-panel::-webkit-scrollbar {
 
 
 
-/* Push the close button below the notch in mobile */
-html.mobile-mode .uni-close {
-    top: 25px !important;
-    /* Avoid camera notch */
-    right: 14px !important;
+/* Telegram-style gradient scrim over the profile image */
+.uni-top-bar {
+    display: none;
+}
+
+html.mobile-mode .uni-top-bar {
+    display: flex !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 80px !important;
+    align-items: flex-start !important;
+    justify-content: flex-end !important;
+    padding: max(env(safe-area-inset-top, 12px), 12px) 8px 0 !important;
+    /* Natural gradient scrim — no blur, just a shadow fade */
+    background: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 100%) !important;
+    z-index: 10 !important;
+}
+
+/* Close Button Logic */
+.mobile-only-close {
+    display: none !important;
+}
+
+html.mobile-mode .mobile-only-close {
+    display: flex !important;
+    position: static !important; /* sit naturally inside the topbar */
+    background: transparent !important;
+    border: none !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    box-shadow: none !important;
+    padding: 8px !important;
+}
+
+.pc-only-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 38px;
+    height: 38px;
+    background: rgba(255, 255, 255, 0.08); /* Subtle circle */
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    box-shadow: none;
+    z-index: 100;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+}
+
+.pc-only-close:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    transform: scale(1.1);
+}
+
+html.mobile-mode .pc-only-close {
+    display: none !important;
+}
+
+/* Base styles for normal uni-close */
+.uni-close {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: rgba(125, 125, 125, 0.1);
+    border: none;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    z-index: 100;
+    transition: all 0.2s;
+    cursor: pointer;
 }
 
 /* Notch-safe space above the name overlay */

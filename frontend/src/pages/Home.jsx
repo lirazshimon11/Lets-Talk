@@ -102,7 +102,7 @@ export default function Home() {
                     /* ── Canvas button: idle → filling ── */
                     <div className={animateFail ? 'shake-wrapper' : ''}>
                         <WaterFillCanvas
-                            label={t('btn_start_searching') || 'Start Searching'}
+                            label={t('btn_start_searching') || 'Search'}
                             disabled={phase !== 'idle'}
                             onStart={handleStart}
                             onFilled={handleFilled}

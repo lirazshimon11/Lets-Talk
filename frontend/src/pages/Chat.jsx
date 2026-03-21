@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { getCompatibility } from '../utils/compatibility';
 import EmojiPicker from 'emoji-picker-react';
 import FullscreenImage from '../components/FullscreenImage';
 import { getSignedUrls } from '../lib/signedUrls';
@@ -22,28 +21,19 @@ export default function Chat() {
     const [loading, setLoading] = useState(true);
     const [threshold, setThreshold] = useState(10);
     const [showSettings, setShowSettings] = useState(false);
-    const [showCompatibility, setShowCompatibility] = useState(false);
-    const [showProfile, setShowProfile] = useState(false);
-    const [compatibilityData, setCompatibilityData] = useState([]);
-    const [compatibilityPercentage, setCompatibilityPercentage] = useState(100);
     const [currentUser, setCurrentUser] = useState(null);
     const [chatBg, setChatBg] = useState('none');
     const [muteNotifs, setMuteNotifs] = useState(false);
     const [readReceipts, setReadReceipts] = useState(true);
-    const [notifSound, setNotifSound] = useState(true);
     const [disappearMsgs, setDisappearMsgs] = useState(false);
     const [heroSlide, setHeroSlide] = useState(0);
     const [selectedImg, setSelectedImg] = useState(null);
     const [showEndConfirm, setShowEndConfirm] = useState(false);
     const [endingMatch, setEndingMatch] = useState(false);
     const [matchEndedToast, setMatchEndedToast] = useState(false);
-    const prevMsgCountRef = useRef(null);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
     const [allConversations, setAllConversations] = useState([]);
     const [showRevealAnim, setShowRevealAnim] = useState(false);
     const [selectedImgIndex, setSelectedImgIndex] = useState(0);
-    const swipeUpTimerRef = useRef(null);
-    const touchStartPosRef = useRef(null);
 
     // New Features State
     const [replyTo, setReplyTo] = useState(null);
@@ -70,9 +60,7 @@ export default function Chat() {
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
         return () => observer.disconnect();
     }, []);
-    // Settings wheel hover (PC) state
-    const [settingsHoverOpen, setSettingsHoverOpen] = useState(false);
-    const settingsHoverTimerRef = useRef(null);
+
     // Copy success: track which message is in 'copied' state
     const [copiedMsgId, setCopiedMsgId] = useState(null);
     // Swipe-to-reply (mobile)
@@ -91,27 +79,6 @@ export default function Chat() {
         ? (conversation?.other_profile_images?.length ? conversation.other_profile_images : [displayImage])
         : [];
 
-    // Date Invite State
-    const [showDateModal, setShowDateModal] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(new Date());
-    const [calMonth, setCalMonth] = useState(new Date());
-    const [showCalendar, setShowCalendar] = useState(false);
-    const [showTimePicker, setShowTimePicker] = useState(false);
-
-    const [dateParams, setDateParams] = useState({
-        timeH: '08',
-        timeM: '00',
-        timeAmpm: 'PM',
-        place: '',
-        description: ''
-    });
-
-    // Action & Roadmap State
-    const [showActionMenu, setShowActionMenu] = useState(false);
-    const [showStatusModal, setShowStatusModal] = useState(false);
-    const [statusType, setStatusType] = useState('Dating');
-
-    const messagesEndRef = useRef(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const emojiPickerRef = useRef(null);
 
@@ -333,7 +300,6 @@ export default function Chat() {
 
     // Reset reveal animation tracking and clear state when switching chats
     useEffect(() => {
-        prevMsgCountRef.current = null;
         setShowRevealAnim(false);
         setLoading(true);
         setConversation(null);
@@ -542,7 +508,17 @@ export default function Chat() {
 
             if (conditionsMet && !wasAlreadyRevealed) {
                 // Update the conversation status to revealed
-                supabase.from('conversations').update({ status: 'revealed' }).eq('id', id).then(() => {
+                supabase.from('conversations').update({ status: 'revealed' }).eq('id', id).select().then(({data, error}) => {
+                    if (error) {
+                        console.error('Failed to update conversation status:', error);
+                        alert('Could not update match status. Check RLS or DB.');
+                        return;
+                    }
+                    if (!data || data.length === 0) {
+                         console.error('Update succeeded but 0 rows affected! RLS may be blocking the update.');
+                         alert('Update succeeded but 0 rows affected! RLS may be blocking the update.');
+                         return;
+                    }
                     setConversation(prev => ({ ...prev, status: 'revealed' }));
                     setShowRevealAnim(false);
                     setTimeout(() => {
@@ -610,75 +586,7 @@ export default function Chat() {
 
 
 
-    const handleSendDateInvite = async () => {
-        if (!selectedDate || !dateParams.place || !dateParams.description) return;
 
-        let h = parseInt(dateParams.timeH, 10);
-        if (dateParams.timeAmpm === 'PM' && h < 12) h += 12;
-        if (dateParams.timeAmpm === 'AM' && h === 12) h = 0;
-
-        const finalDate = new Date(selectedDate);
-        finalDate.setHours(h, parseInt(dateParams.timeM, 10), 0, 0);
-
-        const inviteObj = {
-            type: 'date_invite',
-            status: 'pending',
-            datetime: finalDate.toISOString(),
-            place: dateParams.place,
-            description: dateParams.description
-        };
-        const msgText = `[DATE_INVITE]${JSON.stringify(inviteObj)}`;
-
-        setShowDateModal(false);
-        setShowCalendar(false);
-        setShowTimePicker(false);
-        setSelectedDate(new Date());
-        setDateParams({ timeH: '08', timeM: '00', timeAmpm: 'PM', place: '', description: '' });
-
-        await supabase.from('messages').insert({
-            conversation_id: id,
-            sender_id: currentUser.id,
-            text: msgText
-        });
-
-        const newCount = conversation.message_count + 1;
-        await supabase.from('conversations').update({
-            message_count: newCount
-        }).eq('id', id);
-    };
-
-    const handleUpdateStatus = async (msgId, currentText, newStatus, tag) => {
-        try {
-            const jsonStr = currentText.replace(tag, '');
-            const obj = JSON.parse(jsonStr);
-            obj.status = newStatus;
-            const newText = `${tag}${JSON.stringify(obj)}`;
-            await supabase.from('messages').update({ text: newText }).eq('id', msgId);
-        } catch (err) {
-            console.error("Failed to update status", err);
-        }
-    };
-
-    const handleSendStatusDeclaration = async () => {
-        const obj = {
-            type: 'status_declaration',
-            status: 'pending',
-            declaration: statusType
-        };
-        const msgText = `[STATUS_DECLARATION]${JSON.stringify(obj)}`;
-        setShowStatusModal(false);
-        const { error } = await supabase.from('messages').insert({
-            conversation_id: id,
-            sender_id: currentUser.id,
-            text: msgText
-        });
-        if (!error) {
-            const newCount = conversation.message_count + 1;
-            await supabase.from('conversations').update({
-                message_count: newCount
-            }).eq('id', id);
-        }
-    };
 
     const handleThemeChange = async (newTheme) => {
         setTheme(newTheme);
@@ -721,19 +629,7 @@ export default function Chat() {
         setShowSettings(false);
     };
 
-    const handleShowCompatibility = async (e) => {
-        e.stopPropagation(); // Prevent opening settings modal
-        try {
-            if (!currentUser) return;
-            const data = await getCompatibility(id, currentUser.id);
-            setCompatibilityData(data.compatibility || []);
-            setCompatibilityPercentage(data.percentage ?? 100);
-            setShowCompatibility(true);
-        } catch (err) {
-            console.error(err);
-            alert("Could not load compatibility data.");
-        }
-    };
+
 
     if (loading) return <HeartLoader />;
 
@@ -814,11 +710,6 @@ export default function Chat() {
                             <span className="header-username">{conversation.other_username}</span>
                         </div>
                         <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-
-                            <button className="btn-why-match" onClick={(e) => { e.stopPropagation(); handleShowCompatibility(e); }} style={{ margin: '0', padding: '6px 16px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Why We Matched">
-                                <svg className="mobile-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'none' }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
-                                <span className="desktop-text" style={{ fontSize: '0.75rem' }}>Why We Matched</span>
-                            </button>
                         </div>
                     </header>
 
@@ -899,79 +790,7 @@ export default function Chat() {
                             let bubbleBody = msg.text;
                             let textForCopy = msg.text;
 
-                            if (msg.text.startsWith('[DATE_INVITE]')) {
-                                try {
-                                    const data = JSON.parse(msg.text.replace('[DATE_INVITE]', ''));
-                                    const dateObj = new Date(data.datetime);
-                                    const formattedDate = dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-                                    bubbleClassName = "message-bubble date-invite-bubble";
-                                    bubbleBody = (
-                                        <>
-                                            <div className="date-invite-header">
-                                                📅 Date Invitation
-                                            </div>
-                                            <div className="date-invite-body">
-                                                <p><strong>When:</strong> {formattedDate}</p>
-                                                <p><strong>Where:</strong> {data.place}</p>
-                                                <p style={{ marginTop: '12px', fontStyle: 'italic' }}>"{data.description}"</p>
-                                            </div>
-                                            <div className="date-invite-footer">
-                                                {data.status === 'pending' ? (
-                                                    isMine ? (
-                                                        <div className="date-status pending">Waiting for response...</div>
-                                                    ) : (
-                                                        <div className="date-actions">
-                                                            <button className="btn-date-accept" onClick={() => handleUpdateStatus(msg.id, msg.text, 'accepted', '[DATE_INVITE]')}>Accept</button>
-                                                            <button className="btn-date-decline" onClick={() => handleUpdateStatus(msg.id, msg.text, 'declined', '[DATE_INVITE]')}>Decline</button>
-                                                        </div>
-                                                    )
-                                                ) : data.status === 'accepted' ? (
-                                                    <div className="date-status accepted">✨ Date Accepted! ✨</div>
-                                                ) : (
-                                                    <div className="date-status declined">❌ Declined</div>
-                                                )}
-                                            </div>
-                                        </>
-                                    );
-                                } catch (e) {
-                                    bubbleBody = "Sent a date invite (Error loading)";
-                                }
-                            } else if (msg.text.startsWith('[STATUS_DECLARATION]')) {
-                                try {
-                                    const data = JSON.parse(msg.text.replace('[STATUS_DECLARATION]', ''));
-                                    bubbleClassName = "message-bubble date-invite-bubble";
-                                    bubbleBody = (
-                                        <>
-                                            <div className="date-invite-header" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-                                                💕 Relationship Update
-                                            </div>
-                                            <div className="date-invite-body" style={{ textAlign: 'center' }}>
-                                                <p>Requested Status:</p>
-                                                <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: '10px 0' }}>{data.declaration}</p>
-                                            </div>
-                                            <div className="date-invite-footer">
-                                                {data.status === 'pending' ? (
-                                                    isMine ? (
-                                                        <div className="date-status pending">Waiting for response...</div>
-                                                    ) : (
-                                                        <div className="date-actions">
-                                                            <button className="btn-date-accept" onClick={() => handleUpdateStatus(msg.id, msg.text, 'accepted', '[STATUS_DECLARATION]')}>Agree</button>
-                                                            <button className="btn-date-decline" onClick={() => handleUpdateStatus(msg.id, msg.text, 'declined', '[STATUS_DECLARATION]')}>Disagree</button>
-                                                        </div>
-                                                    )
-                                                ) : data.status === 'accepted' ? (
-                                                    <div className="date-status accepted">✨ Agreed! ✨</div>
-                                                ) : (
-                                                    <div className="date-status declined">❌ Disagreed</div>
-                                                )}
-                                            </div>
-                                        </>
-                                    );
-                                } catch (e) {
-                                    bubbleBody = "Sent a status update (Error loading)";
-                                }
-                            } else if (msg.text.startsWith('[REPLY_START]')) {
+                            if (msg.text.startsWith('[REPLY_START]')) {
                                 const endIdx = msg.text.indexOf('[REPLY_END]');
                                 if (endIdx !== -1) {
                                     try {
@@ -1314,7 +1133,6 @@ export default function Chat() {
                                 </div>
                             );
                         })}
-                        <div ref={messagesEndRef} />
                     </div>
 
                     <div className="chat-input-wrapper">
@@ -1369,60 +1187,7 @@ export default function Chat() {
                             );
                         })()}
 
-                        {/* Action menu hover bridge for settings wheel (PC) */}
-                        {showActionMenu && (
-                            <div
-                                className="action-menu-popup"
-                                onMouseEnter={() => {
-                                    if (window.matchMedia('(pointer: fine)').matches) {
-                                        clearTimeout(settingsHoverTimerRef.current);
-                                    }
-                                }}
-                                onMouseLeave={() => {
-                                    if (window.matchMedia('(pointer: fine)').matches && settingsHoverOpen) {
-                                        settingsHoverTimerRef.current = setTimeout(() => {
-                                            setShowActionMenu(false);
-                                            setSettingsHoverOpen(false);
-                                        }, 200);
-                                    }
-                                }}
-                            >
-                                <button type="button" className="action-menu-item" onClick={() => { setShowDateModal(true); setShowActionMenu(false); setSettingsHoverOpen(false); }}>
-                                    📅 Suggest a Date
-                                </button>
-                                <button type="button" className="action-menu-item" disabled={false} onClick={() => { setShowStatusModal(true); setShowActionMenu(false); setSettingsHoverOpen(false); }}>
-                                    💕 Declare Status
-                                </button>
-                            </div>
-                        )}
                         <form className="chat-input-form" onSubmit={handleSend} style={{ borderRadius: '30px', background: 'var(--card-bg)', backdropFilter: 'blur(20px)', border: '1px solid var(--glass-border)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', display: fullPickerMsgId ? 'none' : 'flex', alignItems: 'center' }}>
-                            {/* Action Menu Toggle (settings wheel) */}
-                            <button
-                                type="button"
-                                onClick={() => setShowActionMenu(!showActionMenu)}
-                                onMouseEnter={() => {
-                                    if (window.matchMedia('(pointer: fine)').matches) {
-                                        clearTimeout(settingsHoverTimerRef.current);
-                                        setSettingsHoverOpen(true);
-                                        setShowActionMenu(true);
-                                    }
-                                }}
-                                onMouseLeave={() => {
-                                    if (window.matchMedia('(pointer: fine)').matches && settingsHoverOpen) {
-                                        settingsHoverTimerRef.current = setTimeout(() => {
-                                            setShowActionMenu(false);
-                                            setSettingsHoverOpen(false);
-                                        }, 300);
-                                    }
-                                }}
-                                className="emoji-trigger-btn"
-                                title="Actions"
-                            >
-                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                                </svg>
-                            </button>
 
                             {/* Emoji/Keyboard Toggle Button */}
                             <button
@@ -1600,10 +1365,12 @@ export default function Chat() {
                                                 <div className="uni-mystery-lock">🔒</div>
                                             </div>
                                         ) : null}
-                                        <div className="uni-top-gradient" />
-                                        <button className="uni-close" onClick={() => setShowSettings(false)}>
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '22px', height: '22px' }}><path d="M18 6L6 18M6 6l12 12" /></svg>
-                                        </button>
+                                        {/* Telegram-style frosted topbar — only visible on mobile */}
+                                        <div className="uni-top-bar">
+                                            <button className="uni-close mobile-only-close" onClick={() => setShowSettings(false)}>
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '22px', height: '22px' }}><path d="M5 12h14m-7-7l7 7-7 7" /></svg>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="uni-sidebar-info">
@@ -1626,6 +1393,9 @@ export default function Chat() {
                                 </div>
 
                                 <div className="uni-main-content">
+                                    <button className="uni-close pc-only-close" onClick={e => { e.stopPropagation(); setShowSettings(false); }} title="Close">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '22px', height: '22px' }}><path d="M5 12h14m-7-7l7 7-7 7" /></svg>
+                                    </button>
                                     {/* Bubble style */}
                                     <div className="uni-section">
                                         <p className="uni-section-label">Bubble Style</p>
@@ -1702,199 +1472,17 @@ export default function Chat() {
                         </div>
                     )}
 
-                    {/* Compatibility Modal */}
-                    {showCompatibility && (
-                        <div className="settings-modal-overlay" onClick={() => setShowCompatibility(false)}>
-                            <div className="settings-modal compatibility-modal" onClick={e => e.stopPropagation()}>
-                                <div className="settings-header" style={{ marginBottom: '15px' }}>
-                                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '1.5rem' }}>✨</span> Why We Matched
-                                    </h3>
-                                    <button className="btn-close" onClick={() => setShowCompatibility(false)}>
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                                    </button>
-                                </div>
+                    {/* Fullscreen Image Overlay */}
+                    <FullscreenImage
+                        images={selectedImg ? allImages : null}
+                        initialIndex={selectedImgIndex}
+                        onClose={() => setSelectedImg(null)}
+                    />
 
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px', padding: '15px', background: 'var(--input-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                                    <span style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-main)' }}>Match Score</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <div style={{ width: '100px', height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
-                                            <div style={{ width: `${compatibilityPercentage}%`, height: '100%', background: 'var(--accent-gradient)', borderRadius: '4px', transition: 'width 1s ease-out' }}></div>
-                                        </div>
-                                        <span style={{ fontWeight: '800', fontSize: '1.2rem', color: '#10b981' }}>{compatibilityPercentage}%</span>
-                                    </div>
-                                </div>
-
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '15px' }}>
-                                    Here are the specific preferences you both share:
-                                </p>
-
-                                <div className="compatibility-table">
-                                    <div className="comp-row comp-header">
-                                        <div className="comp-col">Trait</div>
-                                        <div className="comp-col">Your Preference</div>
-                                        <div className="comp-col">Their Trait</div>
-                                    </div>
-                                    {compatibilityData
-                                        .filter(item => item.matched && item.preference !== 'Any')
-                                        .map((item, i) => (
-                                            <div key={i} className="comp-row matched">
-                                                <div className="comp-col label">{item.label}</div>
-                                                <div className="comp-col" style={{ color: '#ec4899', fontWeight: '800' }}>{item.preference}</div>
-                                                <div className="comp-col" style={{ color: '#10b981', fontWeight: '800' }}>{item.their_trait}</div>
-                                            </div>
-                                        ))}
-                                    {compatibilityData.filter(item => item.matched && item.preference !== 'Any').length === 0 && (
-                                        <div className="comp-row">
-                                            <div className="comp-col" style={{ width: '100%', textAlign: 'center', opacity: 0.7 }}>
-                                                You matched perfectly on standard criteria without any specific strict preferences!
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
-                {/* Fullscreen Image Overlay */}
-                <FullscreenImage
-                    images={selectedImg ? allImages : null}
-                    initialIndex={selectedImgIndex}
-                    onClose={() => setSelectedImg(null)}
-                />
 
-                {/* ═══ Suggest a Date Modal ═══ */}
-                {showDateModal && (
-                    <div className="settings-modal-overlay" onClick={() => setShowDateModal(false)}>
-                        <div className="settings-modal" onClick={e => e.stopPropagation()}>
-                            <div className="settings-header" style={{ marginBottom: '15px' }}>
-                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '1.5rem' }}>📅</span> Suggest a Date
-                                </h3>
-                                <button className="btn-close" onClick={() => { setShowDateModal(false); setShowCalendar(false); setShowTimePicker(false); }}>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                                </button>
-                            </div>
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                handleSendDateInvite();
-                            }}>
-                                <label className="date-input-label">When?</label>
-                                <div className="compact-date-row">
-                                    <button type="button" className={`compact-date-btn ${showCalendar ? 'active' : ''}`} onClick={() => { setShowCalendar(!showCalendar); setShowTimePicker(false); }}>
-                                        📅 {selectedDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                    </button>
-                                    <button type="button" className={`compact-date-btn ${showTimePicker ? 'active' : ''}`} onClick={() => { setShowTimePicker(!showTimePicker); setShowCalendar(false); }}>
-                                        ⏱️ {dateParams.timeH}:{dateParams.timeM} {dateParams.timeAmpm}
-                                    </button>
-                                </div>
 
-                                {showCalendar && (
-                                    <div className="custom-calendar popup">
-                                        <div className="cal-header">
-                                            <button type="button" className="cal-header-btn" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))}>&lt;</button>
-                                            <span>{calMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
-                                            <button type="button" className="cal-header-btn" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))}>&gt;</button>
-                                        </div>
-                                        <div className="cal-grid">
-                                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={`dn-${i}`} className="cal-day-name">{d}</div>)}
-                                            {Array(firstDayOfMonth(calMonth.getFullYear(), calMonth.getMonth())).fill(null).map((_, i) => <div key={`b-${i}`} className="cal-blank" />)}
-                                            {Array.from({ length: daysInMonth(calMonth.getFullYear(), calMonth.getMonth()) }, (_, i) => i + 1).map(d => {
-                                                const currentDate = new Date(calMonth.getFullYear(), calMonth.getMonth(), d);
-                                                const isSelected = selectedDate.toDateString() === currentDate.toDateString();
-                                                return (
-                                                    <div
-                                                        key={d}
-                                                        className={`cal-day ${isSelected ? 'selected' : ''}`}
-                                                        onClick={() => { setSelectedDate(currentDate); setShowCalendar(false); }}
-                                                    >
-                                                        {d}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
 
-                                {showTimePicker && (
-                                    <div className="custom-time-picker popup">
-                                        <div className="time-col">
-                                            <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeH: String((parseInt(p.timeH, 10) % 12) + 1).padStart(2, '0') }))}>▲</button>
-                                            <div className="time-val">{dateParams.timeH}</div>
-                                            <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeH: String((parseInt(p.timeH, 10) - 2 + 12) % 12 + 1).padStart(2, '0') }))}>▼</button>
-                                        </div>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-muted)' }}>:</div>
-                                        <div className="time-col">
-                                            <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeM: String((parseInt(p.timeM, 10) + 5) % 60).padStart(2, '0') }))}>▲</button>
-                                            <div className="time-val">{dateParams.timeM}</div>
-                                            <button type="button" className="time-btn" onClick={() => setDateParams(p => ({ ...p, timeM: String((parseInt(p.timeM, 10) - 5 + 60) % 60).padStart(2, '0') }))}>▼</button>
-                                        </div>
-                                        <div className="time-col" style={{ marginLeft: '10px' }}>
-                                            <button type="button" className="time-ampm-btn" onClick={() => setDateParams(p => ({ ...p, timeAmpm: p.timeAmpm === 'AM' ? 'PM' : 'AM' }))}>{dateParams.timeAmpm}</button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <label className="date-input-label">Where?</label>
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    placeholder="e.g. Central Park Cafe"
-                                    value={dateParams.place}
-                                    onChange={e => setDateParams({ ...dateParams, place: e.target.value })}
-                                    style={{ marginBottom: '14px' }}
-                                    required
-                                />
-
-                                <label className="date-input-label">The Pitch (Convince them!)</label>
-                                <textarea
-                                    className="input-field date-textarea"
-                                    placeholder="I make a mean cup of coffee..."
-                                    value={dateParams.description}
-                                    onChange={e => setDateParams({ ...dateParams, description: e.target.value })}
-                                    required
-                                />
-
-                                <button type="submit" className="btn-primary" style={{ marginTop: '15px' }}>Send Invite</button>
-                            </form>
-                        </div>
-                    </div>
-                )}
-
-                {/* ═══ Relation Status Declaration Modal ═══ */}
-                {showStatusModal && (
-                    <div className="settings-modal-overlay" onClick={() => setShowStatusModal(false)}>
-                        <div className="settings-modal" onClick={e => e.stopPropagation()}>
-                            <div className="settings-header" style={{ marginBottom: '15px' }}>
-                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '1.5rem' }}>💕</span> Declare Status
-                                </h3>
-                                <button className="btn-close" onClick={() => setShowStatusModal(false)}>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                                </button>
-                            </div>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '15px' }}>Select the new relationship status you want to propose for this match.</p>
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                handleSendStatusDeclaration();
-                            }}>
-                                <select
-                                    className="input-field"
-                                    value={statusType}
-                                    onChange={e => setStatusType(e.target.value)}
-                                    style={{ marginBottom: '14px', width: '100%' }}
-                                >
-                                    <option value="Dating">Dating</option>
-                                    <option value="Couple">Couple</option>
-                                    <option value="Friends with Benefits">Friends with Benefits</option>
-                                    <option value="Break Up">Break Up</option>
-                                </select>
-
-                                <button type="submit" className="btn-primary" style={{ marginTop: '15px', background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>Send Declaration</button>
-                            </form>
-                        </div>
-                    </div>
-                )}
 
 
 

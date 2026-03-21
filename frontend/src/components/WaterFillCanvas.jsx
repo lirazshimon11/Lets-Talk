@@ -129,9 +129,9 @@ export default function WaterFillCanvas({ label, disabled, onStart, onFilled }) 
             onClick={handleClick}
             style={{
                 display:      'block',
-                borderRadius: '50%',
+                clipPath:     "path('M 120 225 C 120 225 0 150 0 75 C 0 10 105 10 120 60 C 135 10 240 10 240 75 C 240 150 120 225 120 225 Z')",
                 cursor:       disabled ? 'default' : 'pointer',
-                boxShadow:    '0 15px 40px rgba(168,85,247,0.35)',
+                filter:       'drop-shadow(0 15px 20px rgba(168,85,247,0.35))',
                 transition:   'transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275)',
             }}
             onMouseEnter={e => { if (!disabled) e.currentTarget.style.transform = 'scale(1.08)'; }}
