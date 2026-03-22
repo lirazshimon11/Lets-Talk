@@ -57,11 +57,14 @@ export default function Home() {
                 const { data: conversationId, error: rpcError } = await matchResultRef.current;
                 if (rpcError) throw new Error(rpcError.message);
                 if (conversationId) {
-                    navigate(`/chat/${conversationId}`);
+                    setPhase('found');
+                    setTimeout(() => {
+                        navigate(`/chat/${conversationId}`);
+                    }, 1200);
                 } else {
                     setAnimateFail(true);
-                    setError(t('no_match_found') || 'No matches found right now. Try expanding your preferences.');
-                    setTimeout(() => setAnimateFail(false), 800);
+                    // The user requested NO text message, just the broken heart animation
+                    setTimeout(() => setAnimateFail(false), 2500);
                     setPhase('idle');
                 }
             } catch (err) {
@@ -88,8 +91,8 @@ export default function Home() {
             )}
 
             <div className="search-section">
-                {phase === 'heart' ? (
-                    /* ── Heart animation plays once ── */
+                {phase === 'found' ? (
+                    /* ── Heart morphs and spins BEFORE entering chat ── */
                     <div className="preloader-wrapper">
                         <div className="heart-preloader heart-once">
                             <span></span>
@@ -99,11 +102,11 @@ export default function Home() {
                         <div className="heart-shadow"></div>
                     </div>
                 ) : (
-                    /* ── Canvas button: idle → filling ── */
-                    <div className={animateFail ? 'shake-wrapper' : ''}>
+                    <div className={`${animateFail ? 'shake-wrapper' : ''} ${phase === 'heart' ? 'pulsing-heart' : ''}`}>
                         <WaterFillCanvas
                             label={t('btn_start_searching') || 'Search'}
-                            disabled={phase !== 'idle'}
+                            disabled={phase !== 'idle' || animateFail}
+                            isBroken={animateFail}
                             onStart={handleStart}
                             onFilled={handleFilled}
                         />

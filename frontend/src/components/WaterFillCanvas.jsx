@@ -1,143 +1,229 @@
 import { useEffect, useRef, useCallback } from 'react';
 
-const SIZE = 240;
+const SIZE = 240; 
+const CANV_SIZE = 340; // larger bounds to prevent cropping the separated halves
+const OFS = 50; // shift to center the 240 heart inside the 340 canvas
 const CX = SIZE / 2;
 const CY = SIZE / 2;
-const R  = SIZE / 2;        // fill full canvas — CSS border-radius clips the circle
 const DURATION = 2200;      // ms to go from 0 → 100 %
 
-export default function WaterFillCanvas({ label, disabled, onStart, onFilled }) {
+export default function WaterFillCanvas({ label, disabled, isBroken, onStart, onFilled }) {
     const canvasRef = useRef(null);
-    // All mutable animation state lives in a ref so it never triggers re-renders
-    const s = useRef({ pct: 0, waveOff: 0, running: false, done: false, startTime: null, rafId: null });
+    const s = useRef({ pct: 0, waveOff: 0, running: false, done: false, startTime: null, rafId: null, breakPct: 0 });
 
-    // ── Draw one frame ───────────────────────────────────────────────
+    const dpr = window.devicePixelRatio || 2;
+
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
-        const { pct, waveOff, done } = s.current;
+        const { pct, waveOff, done, breakPct } = s.current;
 
-        ctx.clearRect(0, 0, SIZE, SIZE);
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, CANV_SIZE, CANV_SIZE);
 
-        // Background gradient fills entire canvas — CSS border-radius clips to circle
-        const bg = ctx.createLinearGradient(0, 0, SIZE, SIZE);
-        bg.addColorStop(0, '#a855f7');
-        bg.addColorStop(1, '#ec4899');
-        ctx.fillStyle = bg;
-        ctx.fillRect(0, 0, SIZE, SIZE);
+        ctx.save();
+        ctx.translate(OFS, OFS); // move coordinate system to 0-240 heart area
 
-        // ── Water body ──
-        if (pct > 0) {
-            // Y position of the water surface (0% = bottom, 100% = top)
-            const fillY = CY + R - (pct / 100) * (R * 2);
-            // Amplitude shrinks to 0 as the circle fills
-            const amp = pct >= 100 ? 0 : Math.max(0, 8 * (1 - pct / 100) + 2);
+        // Draw background gradient & water
+        const drawBody = () => {
+            const bg = ctx.createRadialGradient(80, 70, 5, 120, 110, 150);
+            bg.addColorStop(0, '#ffffff'); 
+            bg.addColorStop(0.1, '#ff6b6b'); 
+            bg.addColorStop(0.4, '#d10000'); 
+            bg.addColorStop(0.8, '#500000'); 
+            bg.addColorStop(1, '#110000'); 
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, SIZE, SIZE);
 
-            ctx.beginPath();
-            ctx.moveTo(0, SIZE);
-            ctx.lineTo(0, fillY);
+            if (pct > 0 && breakPct === 0) {
+                const fillY = CY + CX - (pct / 100) * SIZE;
+                const amp = pct >= 100 ? 0 : Math.max(0, 8 * (1 - pct / 100) + 2);
 
-            // Wave path across the full width
-            for (let x = 0; x <= SIZE; x += 2) {
-                const y = fillY + amp * Math.sin((x / SIZE) * Math.PI * 4 + waveOff);
-                ctx.lineTo(x, y);
+                ctx.beginPath();
+                ctx.moveTo(0, SIZE);
+                ctx.lineTo(0, fillY);
+                for (let x = 0; x <= SIZE; x += 2) {
+                    ctx.lineTo(x, fillY + amp * Math.sin((x / SIZE) * Math.PI * 4 + waveOff));
+                }
+                ctx.lineTo(SIZE, SIZE);
+                ctx.closePath();
+
+                const waterGrad = ctx.createLinearGradient(0, fillY, 0, SIZE);
+                waterGrad.addColorStop(0, 'rgba(255,255,255,0.4)');
+                waterGrad.addColorStop(1, 'rgba(255,255,255,0.1)');
+                ctx.fillStyle = waterGrad;
+                ctx.fill();
             }
+        };
 
-            ctx.lineTo(SIZE, SIZE);
+        if (breakPct === 0) {
+            // Idle / Filling state
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(120, 225);
+            ctx.bezierCurveTo(120, 225, 0, 150, 0, 75);
+            ctx.bezierCurveTo(0, 10, 105, 10, 120, 60);
+            ctx.bezierCurveTo(135, 10, 240, 10, 240, 75);
+            ctx.bezierCurveTo(240, 150, 120, 225, 120, 225);
             ctx.closePath();
+            ctx.clip();
+            drawBody();
+            ctx.restore();
 
-            // Semi-transparent white overlay — water sheen over the gradient
-            const waterGrad = ctx.createLinearGradient(0, fillY, 0, SIZE);
-            waterGrad.addColorStop(0, 'rgba(255,255,255,0.45)');
-            waterGrad.addColorStop(1, 'rgba(255,255,255,0.15)');
-            ctx.fillStyle = waterGrad;
-            ctx.fill();
-        }
-
-
-        // ── Label / percentage ──
-        ctx.textAlign    = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle    = 'white';
-        ctx.shadowColor  = 'rgba(0,0,0,0.25)';
-        ctx.shadowBlur   = 6;
-
-        if (done) {
-            ctx.font = 'bold 18px -apple-system, sans-serif';
-            ctx.fillText('Searching…', CX, CY);
-        } else if (pct > 0) {
-            ctx.font = 'bold 28px -apple-system, sans-serif';
-            ctx.fillText(`${Math.round(pct)}%`, CX, CY);
         } else {
-            ctx.font = '800 22px -apple-system, sans-serif';
-            ctx.fillText(label, CX, CY);
+            // Broken Heart state
+            const shift = breakPct * 35; // move halves apart
+            const rot = breakPct * 0.15; // rotate outwards
+
+            // Left Half
+            ctx.save();
+            ctx.translate(120, 150);
+            ctx.rotate(-rot);
+            ctx.translate(-shift - 120, -150);
+            
+            ctx.beginPath();
+            ctx.moveTo(120, 225);
+            ctx.bezierCurveTo(120, 225, 0, 150, 0, 75);
+            ctx.bezierCurveTo(0, 10, 105, 10, 120, 60);
+            // Iconic zigzag crack down the middle matching reference
+            ctx.lineTo(100, 110);
+            ctx.lineTo(135, 160);
+            ctx.lineTo(120, 225);
+            ctx.closePath();
+            
+            ctx.clip();
+            drawBody();
+            ctx.restore();
+
+            // Right Half
+            ctx.save();
+            ctx.translate(120, 150);
+            ctx.rotate(rot);
+            ctx.translate(shift - 120, -150);
+            
+            ctx.beginPath();
+            ctx.moveTo(120, 60);
+            ctx.bezierCurveTo(135, 10, 240, 10, 240, 75);
+            ctx.bezierCurveTo(240, 150, 120, 225, 120, 225);
+            // Iconic zigzag crack back up matching reference
+            ctx.lineTo(135, 160);
+            ctx.lineTo(100, 110);
+            ctx.lineTo(120, 60);
+            ctx.closePath();
+            
+            ctx.clip();
+            drawBody();
+            ctx.restore();
         }
 
-        ctx.shadowBlur = 0;
+        // Overlay Labels
+        if (breakPct === 0) {
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle    = 'white';
+            ctx.shadowColor  = 'rgba(0,0,0,0.4)';
+            ctx.shadowBlur   = 8;
+
+            if (done) {
+                ctx.font = 'bold 18px -apple-system, sans-serif';
+                ctx.fillText('Searching…', CX, CY);
+            } else if (pct > 0) {
+                ctx.font = 'bold 28px -apple-system, sans-serif';
+                ctx.fillText(`${Math.round(pct)}%`, CX, CY);
+            } else {
+                ctx.font = '800 22px -apple-system, sans-serif';
+                ctx.fillText(label, CX, CY);
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        ctx.restore(); // restore OFS translation
+        ctx.restore(); // restore dpr scale
     }, [label]);
 
-    // ── Animation loop ───────────────────────────────────────────────
     const startLoop = useCallback(() => {
         const loop = (ts) => {
             if (!s.current.startTime) s.current.startTime = ts;
             const elapsed = ts - s.current.startTime;
-            s.current.pct     = Math.min(100, (elapsed / DURATION) * 100);
+            s.current.pct = Math.min(100, (elapsed / DURATION) * 100);
             s.current.waveOff += 0.07;
             draw();
 
-            if (s.current.pct < 100) {
-                s.current.rafId = requestAnimationFrame(loop);
-            } else {
+            if (s.current.pct < 100) requestAnimationFrame(loop);
+            else {
                 s.current.running = false;
-                s.current.done    = true;
-                draw(); // final frame — flat surface, 100%
+                s.current.done = true;
+                draw();
                 onFilled?.();
             }
         };
         s.current.rafId = requestAnimationFrame(loop);
     }, [draw, onFilled]);
 
-    // ── Click handler ────────────────────────────────────────────────
+    const startBreakLoop = useCallback(() => {
+        let startTime = null;
+        const brkLoop = (ts) => {
+            if (!startTime) startTime = ts;
+            const elapsed = ts - startTime;
+            // 800ms bouncy break effect
+            const progress = Math.min(1, elapsed / 800); 
+            // elastic easing out
+            const easeOutElastic = progress === 0 ? 0 : progress === 1 ? 1 : Math.pow(2, -10 * progress) * Math.sin((progress * 10 - 0.75) * ((2 * Math.PI) / 3)) + 1;
+            s.current.breakPct = easeOutElastic;
+            draw();
+
+            if (progress < 1) s.current.rafId = requestAnimationFrame(brkLoop);
+        };
+        s.current.rafId = requestAnimationFrame(brkLoop);
+    }, [draw]);
+
     const handleClick = useCallback(() => {
-        if (s.current.running || s.current.done || disabled) return;
-        s.current.running   = true;
+        if (s.current.running || s.current.done || disabled || s.current.breakPct > 0) return;
+        s.current.running = true;
         s.current.startTime = null;
         onStart?.();
         startLoop();
     }, [disabled, onStart, startLoop]);
 
-    // ── Reset when parent brings phase back to idle ──────────────────
     useEffect(() => {
-        if (!disabled) {
+        if (!disabled && !isBroken) {
             if (s.current.rafId) cancelAnimationFrame(s.current.rafId);
-            s.current = { pct: 0, waveOff: 0, running: false, done: false, startTime: null, rafId: null };
+            s.current = { pct: 0, waveOff: 0, running: false, done: false, startTime: null, rafId: null, breakPct: 0 };
             draw();
         }
-    }, [disabled, draw]);
+    }, [disabled, isBroken, draw]);
 
-    // ── Initial paint ────────────────────────────────────────────────
     useEffect(() => {
-        draw();
-    }, [draw]);
+        if (isBroken) {
+            if (s.current.rafId) cancelAnimationFrame(s.current.rafId);
+            s.current.breakPct = 0;
+            startBreakLoop();
+        }
+    }, [isBroken, startBreakLoop]);
+
+    useEffect(() => { draw(); }, [draw]);
 
     return (
         <canvas
             ref={canvasRef}
-            width={SIZE}
-            height={SIZE}
+            className={`interactive-heart ${(disabled || s.current.breakPct > 0) ? 'disabled' : ''}`}
+            width={CANV_SIZE * dpr}
+            height={CANV_SIZE * dpr}
             onClick={handleClick}
             style={{
-                display:      'block',
-                clipPath:     "path('M 120 225 C 120 225 0 150 0 75 C 0 10 105 10 120 60 C 135 10 240 10 240 75 C 240 150 120 225 120 225 Z')",
-                cursor:       disabled ? 'default' : 'pointer',
-                filter:       'drop-shadow(0 15px 20px rgba(168,85,247,0.35))',
-                transition:   'transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275)',
+                display: 'block',
+                width: `${CANV_SIZE}px`,
+                height: `${CANV_SIZE}px`,
+                marginLeft: `-${OFS}px`,
+                marginTop: `-${OFS}px`,
+                marginBottom: `-${OFS}px`,
+                marginRight: `-${OFS}px`,
+                clipPath: isBroken ? 'none' : "path('M 170 275 C 170 275 50 200 50 125 C 50 60 155 60 170 110 C 185 60 290 60 290 125 C 290 200 170 275 170 275 Z')",
+                filter: 'drop-shadow(0 20px 30px rgba(0, 0, 0, 0.55)) drop-shadow(0 5px 10px rgba(100, 0, 0, 0.4))',
+                transform: `scale(${isBroken ? 0.95 : 1})`
             }}
-            onMouseEnter={e => { if (!disabled) e.currentTarget.style.transform = 'scale(1.08)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-            onMouseDown={e  => { if (!disabled) e.currentTarget.style.transform = 'scale(0.95)'; }}
-            onMouseUp={e    => { if (!disabled) e.currentTarget.style.transform = 'scale(1.08)'; }}
         />
     );
 }

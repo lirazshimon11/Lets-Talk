@@ -29,11 +29,19 @@
     width: 100%;
     max-width: 600px;
     position: relative;
-    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.search-section:hover {
-    transform: translateY(-5px);
+.interactive-heart {
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.3s ease;
+}
+
+.interactive-heart:not(.disabled):hover {
+    transform: scale(1.15) !important;
+    cursor: pointer !important;
+}
+
+.interactive-heart:not(.disabled):active {
+    transform: scale(0.95) !important;
 }
 
 .search-btn {
@@ -278,21 +286,21 @@
 }
 
 .heart-preloader span {
-    --c: #EC4899;
+    --c: #ee1b22;
     position: absolute;
     display: block;
     height: 64px;
     width: 64px;
     background: var(--c);
-    border: 1px solid var(--c);
+    border: none;
     border-radius: 100%;
-    box-shadow: 0 5px 20px rgba(236, 72, 153, 0.4);
-    transition: background 0.5s, box-shadow 0.5s, border-color 0.5s;
+    box-shadow: 0 5px 20px rgba(238, 27, 34, 0.4);
+    transition: background 0.5s, box-shadow 0.5s;
 }
 
 [data-theme='dark'] .heart-preloader span {
-    --c: #EC4899;
-    box-shadow: 0 5px 20px rgba(236, 72, 153, 0.4);
+    background: var(--c);
+    box-shadow: 0 5px 20px rgba(238, 27, 34, 0.4);
 }
 
 .heart-preloader span:nth-child(1) {
