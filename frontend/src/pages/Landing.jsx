@@ -8,8 +8,7 @@ export default function Landing() {
                 <h1 className="landing-title">Let's <span>Talk</span></h1>
                 <p className="landing-subtitle">Sign up to see photos strictly after a great chat.</p>
                 <div className="landing-buttons">
-                    <Link to="/register" className="btn-landing-primary">Get Started</Link>
-                    <Link to="/login" className="btn-landing-secondary">Log In</Link>
+                    <Link to="/auth" className="btn-landing-primary">Join</Link>
                 </div>
             </div>
 

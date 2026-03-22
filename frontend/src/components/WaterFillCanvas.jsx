@@ -28,12 +28,12 @@ export default function WaterFillCanvas({ label, disabled, isBroken, onStart, on
 
         // Draw background gradient & water
         const drawBody = () => {
-            const bg = ctx.createRadialGradient(80, 70, 5, 120, 110, 150);
-            bg.addColorStop(0, '#ffffff'); 
-            bg.addColorStop(0.1, '#ff6b6b'); 
-            bg.addColorStop(0.4, '#d10000'); 
-            bg.addColorStop(0.8, '#500000'); 
-            bg.addColorStop(1, '#110000'); 
+            const bg = ctx.createRadialGradient(80, 60, 5, 120, 100, 160);
+            bg.addColorStop(0, '#ff8080'); 
+            bg.addColorStop(0.15, '#ff0000'); 
+            bg.addColorStop(0.6, '#cc0000'); 
+            bg.addColorStop(0.9, '#660000'); 
+            bg.addColorStop(1, '#330000'); 
             ctx.fillStyle = bg;
             ctx.fillRect(0, 0, SIZE, SIZE);
 
@@ -56,6 +56,37 @@ export default function WaterFillCanvas({ label, disabled, isBroken, onStart, on
                 ctx.fillStyle = waterGrad;
                 ctx.fill();
             }
+
+            // --- 3D GLOSSY HIGHLIGHTS ---
+            ctx.save();
+            ctx.beginPath();
+            // Left lobe highlight - bigger, softer curve
+            ctx.moveTo(105, 45); 
+            ctx.bezierCurveTo(80, 10, 25, 12, 12, 75); 
+            ctx.bezierCurveTo(25, 30, 80, 25, 105, 45); 
+            ctx.closePath();
+            
+            const leftGloss = ctx.createLinearGradient(20, 20, 105, 75);
+            leftGloss.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+            leftGloss.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+            ctx.fillStyle = leftGloss;
+            ctx.fill();
+            ctx.restore();
+
+            ctx.save();
+            ctx.beginPath();
+            // Right lobe highlight - slightly smaller
+            ctx.moveTo(135, 45); 
+            ctx.bezierCurveTo(160, 10, 215, 12, 228, 75); 
+            ctx.bezierCurveTo(215, 30, 160, 25, 135, 45); 
+            ctx.closePath();
+            
+            const rightGloss = ctx.createLinearGradient(220, 20, 135, 75);
+            rightGloss.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+            rightGloss.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+            ctx.fillStyle = rightGloss;
+            ctx.fill();
+            ctx.restore();
         };
 
         if (breakPct === 0) {

@@ -103,7 +103,6 @@ export default function SettingsPage() {
                                         </span>
                                     )}
                                 </div>
-                                <p className="spage-card-desc">{s.description}</p>
                             </div>
                             {s.to && <ChevronRight size={18} color="var(--text-muted)" className="spage-chevron" />}
                         </div>

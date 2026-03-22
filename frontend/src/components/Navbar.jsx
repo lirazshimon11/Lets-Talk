@@ -68,6 +68,35 @@ export default function Navbar({ session }) {
     const isChats = location.pathname === '/chats';
     const isSettings = location.pathname === '/settings' || location.pathname === '/preferences';
 
+    if (!session && isMobileMode) {
+        // Hide completely on landing page - redundant with the big hero logo
+        if (location.pathname === '/') return null;
+        
+        const isAuth = location.pathname === '/auth' || location.pathname === '/login' || location.pathname === '/register';
+        
+        return (
+            <div className="mobile-logged-out-header" 
+                 style={{ 
+                     padding: '25px', 
+                     position: 'absolute', 
+                     top: '20px', 
+                     left: '15px', 
+                     zIndex: 1000, 
+                     pointerEvents: 'none'
+                 }}>
+                <Link to="/" style={{ 
+                    fontSize: '1.8rem', 
+                    fontWeight: 800, 
+                    color: 'var(--text-main)', 
+                    textDecoration: 'none',
+                    pointerEvents: 'auto'
+                }}>
+                    Let's <span style={{ background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Talk</span>
+                </Link>
+            </div>
+        );
+    }
+
     return (
         <nav className="navbar">
             <div className="navbar-container">
@@ -122,8 +151,7 @@ export default function Navbar({ session }) {
                             <button onClick={toggleTheme} className="btn-theme-toggle" title={t('nav_theme_toggle', 'Toggle Light/Dark Mode')}>
                                 {theme === 'light' ? '🌙' : '☀️'}
                             </button>
-                            <Link to="/login" className="btn-login-nav">{t('nav_login', 'Log In')}</Link>
-                            <Link to="/register" className="btn-signup-nav">{t('nav_signup', 'Sign Up')}</Link>
+                            <Link to="/auth" className="btn-signup-nav">Join</Link>
                         </>
                     )}
                 </div>

@@ -130,11 +130,6 @@ body::after {
 }
 
 html.mobile-mode .auth-box {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
   padding: 20px 10px !important;
 }
 
@@ -147,6 +142,24 @@ html.mobile-mode .auth-box {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+.main-content-wrapper {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  position: relative;
+}
+
+/* PC View: only narrow down on large screens */
+@media (min-width: 1025px) {
+  .main-content-wrapper {
+    width: 80%;
+    margin: 0 auto;
+    max-width: 1400px;
+    /* Safety cap */
   }
 }
 
@@ -452,4 +465,31 @@ input[type="range"].modern-slider::-moz-range-thumb {
   cursor: pointer;
   box-shadow: 0 0 12px var(--accent-shadow);
   border: 2px solid white;
+}
+
+/* ── FORCE MOBILE SIDE-TO-SIDE ── */
+@media screen and (max-width: 1024px) {
+
+  .main-content-wrapper,
+  .chats-container,
+  .spage-container,
+  .highlight-container,
+  .spage-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    box-shadow: none !important;
+  }
+
+  .chat-list-item,
+  .spage-card {
+    padding: 18px 20px !important;
+    border-radius: 0 !important;
+  }
 }

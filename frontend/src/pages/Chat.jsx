@@ -386,31 +386,51 @@ export default function Chat() {
         }
     }, [id, loading, currentUser?.id]);
 
+    const isUser1 = conversation?.user1_id === currentUser?.id;
+    const animShownField = isUser1 ? 'u1_anim_shown' : 'u2_anim_shown';
+
     // ── Reveal condition check ──
     useEffect(() => {
-        if (conversation && currentUser && messages.length > 0) {
-            const otherId = conversation.user1_id === currentUser.id ? conversation.user2_id : conversation.user1_id;
+        if (!loading && conversation && currentUser && messages.length > 0) {
+            const otherId = isUser1 ? conversation.user2_id : conversation.user1_id;
             const myMsgCount = messages.filter(m => m.sender_id === currentUser.id).length;
             const theirMsgCount = messages.filter(m => m.sender_id === otherId).length;
             const iHaveReacted = messages.filter(m => m.sender_id === otherId && m.reactions).some(m => Object.values(m.reactions).some(uids => uids.includes(currentUser.id)));
             const theyHaveReacted = messages.filter(m => m.sender_id === currentUser.id && m.reactions).some(m => Object.values(m.reactions).some(uids => uids.includes(otherId)));
-            const conditionsMet = myMsgCount >= 15 && theirMsgCount >= 15 && iHaveReacted && theyHaveReacted;
+            const conditionsMet = myMsgCount >= 2 && theirMsgCount >= 2 && iHaveReacted && theyHaveReacted;
+
+            // Check DB first, fallback to localStorage
+            const hasSeen = conversation[animShownField] || localStorage.getItem(`hasSeenReveal_${currentUser.id}_${id}`);
+
             if (conditionsMet && conversation.status !== 'revealed') {
-                supabase.from('conversations').update({ status: 'revealed' }).eq('id', id).select().then(({ data, error }) => {
+                const updateData = { status: 'revealed', [animShownField]: true };
+                supabase.from('conversations').update(updateData).eq('id', id).select().then(({ data, error }) => {
                     if (error || !data || data.length === 0) return;
-                    setConversation(prev => ({ ...prev, status: 'revealed' }));
+                    setConversation(prev => ({ ...prev, ...data[0] }));
+                    localStorage.setItem(`hasSeenReveal_${currentUser.id}_${id}`, 'true');
                     setShowRevealAnim(false);
                     setTimeout(() => { setShowRevealAnim(true); setTimeout(() => setShowRevealAnim(false), 6000); }, 10);
                 });
+            } else if (conversation.status === 'revealed' && !hasSeen) {
+                // User hasn't seen the animation yet for this revealed chat
+                supabase.from('conversations').update({ [animShownField]: true }).eq('id', id).then(({ error }) => {
+                    if (!error) {
+                        setConversation(prev => ({ ...prev, [animShownField]: true }));
+                        localStorage.setItem(`hasSeenReveal_${currentUser.id}_${id}`, 'true');
+                        setShowRevealAnim(false);
+                        setTimeout(() => { setShowRevealAnim(true); setTimeout(() => setShowRevealAnim(false), 6000); }, 10);
+                    }
+                });
             }
         }
-    }, [messages, conversation?.status, currentUser?.id, id]);
+    }, [messages, conversation?.status, currentUser?.id, id, animShownField, isUser1, loading]);
 
     // ── Scroll to bottom on new message ──
     useEffect(() => {
         const container = document.querySelector('.messages-container');
         if (container) {
-            container.style.scrollBehavior = 'smooth';
+            // Use 'auto' instead of 'smooth' to jump instantly without the "tour" scroll
+            container.style.scrollBehavior = 'auto';
             container.scrollTop = container.scrollHeight;
         }
     }, [messages, showEmojiPicker, fullPickerMsgId]);
@@ -477,8 +497,6 @@ export default function Chat() {
         navigate(`/chat/${convId}`);
     }, [navigate]);
 
-    if (loading) return <HeartLoader />;
-
     return (
         <div className="chat-layout">
             <ChatSidebar
@@ -488,10 +506,36 @@ export default function Chat() {
             />
 
             <div className="chat-page-wrapper">
+                {/* Header always visible or shell if loading */}
+                <header className="chat-header">
+                    <div className="header-left">
+                        <button onClick={(e) => { e.stopPropagation(); navigate('/chats'); }} className="btn-back">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+                            <span className="desktop-text">Back</span>
+                        </button>
+                    </div>
+                    {loading ? (
+                        <div className="header-center">
+                            <span className="header-username">Let's Talk</span>
+                        </div>
+                    ) : (
+                        <div className="header-center" style={{ cursor: 'pointer' }} onClick={() => setShowSettings(true)}>
+                            {isRevealed && displayImage ? (
+                                <img src={displayImage} alt="profile" className="chat-profile-img"
+                                    onClick={(e) => { e.stopPropagation(); setSelectedImg(displayImage); }} />
+                            ) : (
+                                <img src={conversation?.other_avatar} alt="avatar" className="chat-profile-img" style={{ border: '2px solid var(--accent)' }} />
+                            )}
+                            <span className="header-username">{conversation?.other_username}</span>
+                        </div>
+                    )}
+                    <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} />
+                </header>
+
                 <div className={`chat-container theme-${theme}${chatBg !== 'none' ? ` chat-bg-${chatBg}` : ''}`}>
 
                     {/* Reveal animation */}
-                    {showRevealAnim && (
+                    {showRevealAnim && conversation && (
                         <div className="reveal-animation-overlay">
                             <div className="reveal-content">
                                 <div className="reveal-avatars">
@@ -515,94 +559,79 @@ export default function Chat() {
                         </div>
                     )}
 
-                    <header className="chat-header">
-                        <div className="header-left">
-                            <button onClick={(e) => { e.stopPropagation(); navigate('/chats'); }} className="btn-back">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-                                <span className="desktop-text">Back</span>
-                            </button>
-                        </div>
-                        <div className="header-center" style={{ cursor: 'pointer' }} onClick={() => setShowSettings(true)}>
-                            {isRevealed && displayImage ? (
-                                <img src={displayImage} alt="profile" className="chat-profile-img"
-                                    onClick={(e) => { e.stopPropagation(); setSelectedImg(displayImage); }} />
-                            ) : (
-                                <img src={conversation.other_avatar} alt="avatar" className="chat-profile-img" style={{ border: '2px solid var(--accent)' }} />
-                            )}
-                            <span className="header-username">{conversation.other_username}</span>
-                        </div>
-                        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} />
-                    </header>
-
                     <div className={`messages-container${longPressedMsgId ? ' chat-long-press-active' : ''}`}>
                         {longPressedMsgId && (
                             <div className="long-press-dim-overlay" onClick={() => setLongPressedMsgId(null)} />
                         )}
-                        {messages.map((msg, idx) => {
-                            if (!currentUser || !conversation) return null;
-                            const isMine = msg.sender_id === currentUser.id;
-                            return (
-                                <MessageItem
-                                    key={msg.id}
-                                    msg={msg}
-                                    idx={idx}
-                                    prevMsg={messages[idx - 1]}
-                                    firstUnreadIndex={firstUnreadIndex}
-                                    totalMessages={messages.length}
-                                    currentUser={currentUser}
-                                    conversation={conversation}
-                                    isMine={isMine}
-                                    // Per-message booleans — only the 1 affected message re-renders
-                                    isEmphasized={emphasizedId === msg.id}
-                                    isLongPressed={longPressedMsgId === msg.id}
-                                    isCopied={copiedMsgId === msg.id}
-                                    isReactionDetailsOpen={reactionDetailsId === msg.id}
-                                    isLastReacted={lastReactedId === msg.id}
-                                    // Global booleans — change for all messages at once (unavoidable)
-                                    anyReactionDetailsOpen={!!reactionDetailsId}
-                                    anyFullPickerOpen={!!fullPickerMsgId}
-                                    msgRef={el => { messageRefs.current[msg.id] = el; }}
-                                    longPressTimerRef={longPressTimerRef}
-                                    swipeMsgRef={swipeMsgRef}
-                                    swipeStartXRef={swipeStartXRef}
-                                    swipeElRef={swipeElRef}
-                                    doubleTapTimerRef={doubleTapTimerRef}
-                                    doubleTapMsgIdRef={doubleTapMsgIdRef}
-                                    onReply={handleReply}
-                                    onCopy={handleCopy}
-                                    onSetLongPressed={setLongPressedMsgId}
-                                    onSetFullPicker={setFullPickerMsgId}
-                                    onSetReactionDetails={setReactionDetailsId}
-                                    onReaction={handleMessageReaction}
-                                    onScrollToMessage={scrollToMessage}
-                                />
-                            );
-                        })}
+                        {loading ? (
+                            <HeartLoader />
+                        ) : (
+                            messages.map((msg, idx) => {
+                                if (!currentUser || !conversation) return null;
+                                const isMine = msg.sender_id === currentUser.id;
+                                return (
+                                    <MessageItem
+                                        key={msg.id}
+                                        msg={msg}
+                                        idx={idx}
+                                        prevMsg={messages[idx - 1]}
+                                        firstUnreadIndex={firstUnreadIndex}
+                                        totalMessages={messages.length}
+                                        currentUser={currentUser}
+                                        conversation={conversation}
+                                        isMine={isMine}
+                                        isEmphasized={emphasizedId === msg.id}
+                                        isLongPressed={longPressedMsgId === msg.id}
+                                        isCopied={copiedMsgId === msg.id}
+                                        isReactionDetailsOpen={reactionDetailsId === msg.id}
+                                        isLastReacted={lastReactedId === msg.id}
+                                        anyReactionDetailsOpen={!!reactionDetailsId}
+                                        anyFullPickerOpen={!!fullPickerMsgId}
+                                        msgRef={el => { messageRefs.current[msg.id] = el; }}
+                                        longPressTimerRef={longPressTimerRef}
+                                        swipeMsgRef={swipeMsgRef}
+                                        swipeStartXRef={swipeStartXRef}
+                                        swipeElRef={swipeElRef}
+                                        doubleTapTimerRef={doubleTapTimerRef}
+                                        doubleTapMsgIdRef={doubleTapMsgIdRef}
+                                        onReply={handleReply}
+                                        onCopy={handleCopy}
+                                        onSetLongPressed={setLongPressedMsgId}
+                                        onSetFullPicker={setFullPickerMsgId}
+                                        onSetReactionDetails={setReactionDetailsId}
+                                        onReaction={handleMessageReaction}
+                                        onScrollToMessage={scrollToMessage}
+                                    />
+                                );
+                            })
+                        )}
                     </div>
 
-                    <ChatInput
-                        text={text}
-                        setText={setText}
-                        replyTo={replyTo}
-                        setReplyTo={setReplyTo}
-                        showEmojiPicker={showEmojiPicker}
-                        setShowEmojiPicker={setShowEmojiPicker}
-                        fullPickerMsgId={fullPickerMsgId}
-                        reactionDetailsId={reactionDetailsId}
-                        messages={messages}
-                        currentUser={currentUser}
-                        conversation={conversation}
-                        appTheme={appTheme}
-                        emojiHoverOpen={emojiHoverOpen}
-                        setEmojiHoverOpen={setEmojiHoverOpen}
-                        emojiHoverTimerRef={emojiHoverTimerRef}
-                        emojiPickerRef={emojiPickerRef}
-                        inputRef={inputRef}
-                        onSend={handleSend}
-                        onEmojiClick={handleEmojiClick}
-                        onSetReactionDetails={setReactionDetailsId}
-                        onSetFullPicker={setFullPickerMsgId}
-                    />
+                    {!loading && (
+                        <ChatInput
+                            text={text}
+                            setText={setText}
+                            replyTo={replyTo}
+                            setReplyTo={setReplyTo}
+                            showEmojiPicker={showEmojiPicker}
+                            setShowEmojiPicker={setShowEmojiPicker}
+                            fullPickerMsgId={fullPickerMsgId}
+                            reactionDetailsId={reactionDetailsId}
+                            messages={messages}
+                            currentUser={currentUser}
+                            conversation={conversation}
+                            appTheme={appTheme}
+                            emojiHoverOpen={emojiHoverOpen}
+                            setEmojiHoverOpen={setEmojiHoverOpen}
+                            emojiHoverTimerRef={emojiHoverTimerRef}
+                            emojiPickerRef={emojiPickerRef}
+                            inputRef={inputRef}
+                            onSend={handleSend}
+                            onEmojiClick={handleEmojiClick}
+                            onSetReactionDetails={setReactionDetailsId}
+                            onSetFullPicker={setFullPickerMsgId}
+                        />
+                    )}
 
                     {showSettings && (
                         <ChatSettings

@@ -286,7 +286,7 @@
 }
 
 .heart-preloader span {
-    --c: #ee1b22;
+    --c: #ff0000;
     position: absolute;
     display: block;
     height: 64px;
@@ -294,13 +294,13 @@
     background: var(--c);
     border: none;
     border-radius: 100%;
-    box-shadow: 0 5px 20px rgba(238, 27, 34, 0.4);
+    box-shadow: 0 5px 20px rgba(255, 0, 0, 0.4);
     transition: background 0.5s, box-shadow 0.5s;
 }
 
 [data-theme='dark'] .heart-preloader span {
     background: var(--c);
-    box-shadow: 0 5px 20px rgba(238, 27, 34, 0.4);
+    box-shadow: 0 5px 20px rgba(255, 0, 0, 0.4);
 }
 
 .heart-preloader span:nth-child(1) {

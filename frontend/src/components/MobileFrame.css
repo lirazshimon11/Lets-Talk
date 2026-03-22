@@ -1,4 +1,5 @@
-html.mobile-mode, html.mobile-mode body {
+html.mobile-mode,
+html.mobile-mode body {
     position: fixed !important;
     width: 100vw !important;
     height: var(--app-height, 100dvh) !important;
@@ -18,11 +19,19 @@ html.mobile-mode, html.mobile-mode body {
     box-sizing: border-box;
     /* This padding accounts for the bottom tab bar */
     padding-bottom: 90px;
+    background: transparent;
+}
+
+.mobile-viewport.solid-bg {
+    background: #fff !important; /* Light Mode Default */
+}
+
+[data-theme='dark'] .mobile-viewport.solid-bg {
+    background: #000 !important; /* Dark Mode Solid Black */
 }
 
 .mobile-viewport.no-tab-bar {
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-    /* iPhone notch clearance, otherwise 0 */
+    padding-bottom: env(safe-area-inset-bottom, 0) !important;
 }
 
 /* Scrollbar inside the mobile frame */
@@ -155,49 +164,60 @@ html.mobile-mode .messages-container {
 
 /* CHATS PAGE (LIST) */
 html.mobile-mode .chats-container {
-    padding: 15px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    background: transparent !important;
+}
+
+html.mobile-mode .highlight-container {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
 }
 
 html.mobile-mode .chat-list-item {
-    padding: 15px !important;
+    padding: 18px 20px !important;
+    background: transparent !important;
+    border-bottom: 1px solid var(--border-color) !important;
 }
 
-html.mobile-mode .chat-avatar {
-    width: 45px !important;
-    height: 45px !important;
-    margin-right: 15px !important;
-}
-
-html.mobile-mode .chat-info h4 {
-    font-size: 1.1rem !important;
-}
-
-html.mobile-mode .btn-why-match {
-    padding: 6px 10px !important;
-    font-size: 0.75rem !important;
-}
-
-/* HOME PAGE */
-html.mobile-mode .search-btn,
-html.mobile-mode .preloader-wrapper {
-    width: 200px !important;
-    height: 200px !important;
-}
-
-html.mobile-mode .search-btn {
-    font-size: 1.2rem !important;
+html.mobile-mode .chat-list-item:hover {
+    background: rgba(100, 100, 100, 0.05) !important;
 }
 
 /* SETTINGS PAGE */
 html.mobile-mode .spage-container {
-    margin: 0 auto 30px !important;
-    padding: 40px 10px 0 !important;
-    /* Top padding for notch */
+    margin: 0 !important;
+    padding: 0 !important;
+    /* Managed by viewport */
+    width: 100% !important;
+    max-width: 100% !important;
+    background: transparent !important;
+}
+
+html.mobile-mode .spage-header {
+    padding: 30px 20px 10px !important;
+}
+
+html.mobile-mode .spage-grid {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
 }
 
 html.mobile-mode .spage-card {
-    padding: 15px 12px !important;
-    gap: 12px !important;
+    padding: 18px 20px !important;
+    gap: 18px !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    border-bottom: 1px solid var(--border-color) !important;
+}
+
+html.mobile-mode .spage-card:hover {
+    background: rgba(100, 100, 100, 0.05) !important;
 }
 
 html.mobile-mode .spage-card-icon {

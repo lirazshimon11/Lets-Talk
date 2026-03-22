@@ -1,0 +1,101 @@
+.auth-tabs-box {
+    padding: 0;
+    width: 100%;
+    max-width: 400px;
+    background: transparent;
+    border: 1px solid rgba(168, 85, 247, 0.4); /* Colored border like in the chat */
+    border-radius: 24px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: background 0.5s ease;
+}
+
+/* On Mobile mode, the user specifically wants it to NOT be transparent */
+html.mobile-mode .auth-tabs-box {
+    background: var(--bg-color) !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.auth-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color, #eee);
+}
+
+.auth-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-muted, #777);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.auth-tab:hover {
+    color: var(--text-main);
+}
+
+.auth-tab.active {
+    color: var(--text-main);
+    border-bottom-color: #ec4899;
+    /* Use solid Pink for the underline indicator */
+}
+
+.auth-form-content {
+    padding: 30px 24px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.input-group label {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--text-main);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.auth-form-content .input-field {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.auth-join-btn {
+    width: 100%;
+    padding: 16px;
+    font-size: 18px;
+    border-radius: 50px;
+    border: none;
+    font-weight: 800;
+    color: white;
+    cursor: pointer;
+    margin-top: 15px;
+    background: var(--accent-gradient);
+    box-shadow: 0 10px 25px var(--accent-shadow);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.auth-join-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px var(--accent-shadow);
+}
+
+.auth-join-btn:active {
+    transform: translateY(0);
+}

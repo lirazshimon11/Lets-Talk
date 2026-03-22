@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from './lib/supabase';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import Auth from './pages/Auth';
 import Preferences from './pages/Preferences';
 import PhotoUpload from './pages/PhotoUpload';
 import Home from './pages/Home';
@@ -60,21 +59,19 @@ const ProfileMustGuard = ({ children, session }) => {
   return children;
 };
 
-const WithNavbar = ({ children, session }) => {
-  return (
-    <MobileFrame>
-      <Navbar session={session} />
-      <div className="main-content-wrapper" style={{ width: '80%', margin: '0 auto' }}>
-        {children}
-      </div>
-    </MobileFrame>
-  );
-};
+// Removed WithNavbar as it will be constructed globally around Routes
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [isMobileMode, setIsMobileMode] = useState(window.innerWidth <= 1024);
   const { i18n } = useTranslation();
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileMode(window.innerWidth <= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     document.dir = i18n.language === 'he' ? 'rtl' : 'ltr';
@@ -141,19 +138,25 @@ export default function App() {
         <source src="/DarkModeLiveBackground1.mp4" type="video/mp4" />
       </video>
       <Router>
-        <Routes>
-          {/* If user is logged in, hide Login/Register pages and redirect to Home */}
-          <Route path="/login" element={session ? <Navigate to="/" replace /> : <WithNavbar session={session}><Login /></WithNavbar>} />
-          <Route path="/register" element={session ? <Navigate to="/" replace /> : <WithNavbar session={session}><Register /></WithNavbar>} />
+        <MobileFrame session={session}>
+          <Navbar session={session} />
+          <div className="main-content-wrapper" style={{ width: isMobileMode ? '100%' : '80%', margin: '0 auto' }}>
+            <Routes>
+              {/* If user is logged in, hide Login/Register pages and redirect to Home */}
+              <Route path="/login" element={session ? <Navigate to="/" replace /> : <Auth />} />
+              <Route path="/register" element={session ? <Navigate to="/" replace /> : <Auth />} />
+              <Route path="/auth" element={session ? <Navigate to="/" replace /> : <Auth />} />
 
-          <Route path="/upload-photos" element={<ProtectedRoute session={session}><WithNavbar session={session}><PhotoUpload /></WithNavbar></ProtectedRoute>} />
-          <Route path="/preferences" element={<ProtectedRoute session={session}><WithNavbar session={session}><Preferences /></WithNavbar></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><SettingsPage /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
-          <Route path="/" element={session ? <ProfileMustGuard session={session}><WithNavbar session={session}><Home /></WithNavbar></ProfileMustGuard> : <WithNavbar session={session}><Landing /></WithNavbar>} />
-          <Route path="/chats" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><Chats /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><PersonalInfo /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
-          <Route path="/chat/:id" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><WithNavbar session={session}><Chat /></WithNavbar></ProfileMustGuard></ProtectedRoute>} />
-        </Routes>
+              <Route path="/upload-photos" element={<ProtectedRoute session={session}><PhotoUpload /></ProtectedRoute>} />
+              <Route path="/preferences" element={<ProtectedRoute session={session}><Preferences /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><SettingsPage /></ProfileMustGuard></ProtectedRoute>} />
+              <Route path="/" element={session ? <ProfileMustGuard session={session}><Home /></ProfileMustGuard> : <Landing />} />
+              <Route path="/chats" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><Chats /></ProfileMustGuard></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><PersonalInfo /></ProfileMustGuard></ProtectedRoute>} />
+              <Route path="/chat/:id" element={<ProtectedRoute session={session}><ProfileMustGuard session={session}><Chat /></ProfileMustGuard></ProtectedRoute>} />
+            </Routes>
+          </div>
+        </MobileFrame>
       </Router>
     </MobileProvider>
   );

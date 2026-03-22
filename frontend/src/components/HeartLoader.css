@@ -39,7 +39,7 @@
 }
 
 .heart-loader-overlay .heart-preloader span {
-    --c: #EC4899;
+    --c: #ff0000;
     position: absolute;
     display: block;
     height: 64px;
@@ -47,7 +47,7 @@
     background: var(--c);
     border: 1px solid var(--c);
     border-radius: 100%;
-    box-shadow: 0 5px 20px rgba(236, 72, 153, 0.4);
+    box-shadow: 0 5px 20px rgba(255, 0, 0, 0.4);
 }
 
 .heart-loader-overlay .heart-preloader span:nth-child(1) {

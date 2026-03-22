@@ -1,9 +1,15 @@
 .spage-container {
     width: 100%;
-    max-width: 720px;
-    margin: 36px auto 60px;
-    padding: 0 4px;
+    margin: 36px 0 60px;
+    padding: 0;
     animation: fadeIn 0.35s ease-out;
+}
+
+@media (min-width: 1025px) {
+    .spage-container {
+        max-width: 720px;
+        margin: 36px auto 60px;
+    }
 }
 
 @keyframes fadeIn {
@@ -25,7 +31,15 @@
 .spage-grid {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 0;
+    /* Remove gap between widgets */
+    background: var(--card-bg);
+    backdrop-filter: var(--backdrop-filter);
+    -webkit-backdrop-filter: var(--backdrop-filter);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
 }
 
 /* ── Card ── */
@@ -33,14 +47,16 @@
     display: flex;
     align-items: center;
     gap: 18px;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 18px;
-    padding: 20px 22px;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    padding: 18px 24px;
+    /* Matches Chat items */
+    transition: background 0.2s ease;
     cursor: pointer;
     position: relative;
-    overflow: hidden;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.spage-card:last-child {
+    border-bottom: none;
 }
 
 .spage-card::before {
@@ -50,13 +66,14 @@
     background: var(--accent-gradient);
     opacity: 0;
     transition: opacity 0.2s;
-    border-radius: inherit;
 }
 
 .spage-card:not(.spage-card-disabled):hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
-    border-color: rgba(192, 132, 252, 0.4);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme='light'] .spage-card:not(.spage-card-disabled):hover {
+    background: rgba(0, 0, 0, 0.02);
 }
 
 .spage-card:not(.spage-card-disabled):hover::before {
@@ -87,7 +104,6 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 4px;
 }
 
 .spage-card-title {
@@ -96,11 +112,29 @@
     color: var(--text-main);
 }
 
-.spage-card-desc {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin: 0;
-    line-height: 1.4;
+/* ── Mobile Overrides ── */
+@media (max-width: 768px) {
+    .spage-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 15px 0 60px !important;
+    }
+
+    .spage-header {
+        padding: 0 20px;
+    }
+
+    .spage-grid {
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+        box-shadow: none !important;
+    }
+
+    .spage-card {
+        padding: 16px 20px;
+    }
 }
 
 /* Chevron */
@@ -129,6 +163,16 @@
 
 .badge-action {
     background: var(--accent-gradient);
+    color: white;
+}
+
+.badge-soon {
+    background: rgba(128, 128, 128, 0.15);
+    color: var(--text-muted);
+}
+
+badge-action {
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
     color: white;
 }
 
